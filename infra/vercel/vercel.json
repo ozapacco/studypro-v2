@@ -1,0 +1,15 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "supabase/functions/**/*.ts",
+      "use": "@supabase/edge-runtime"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/functions/(.*)",
+      "dest": "supabase/functions/$1/index.ts"
+    }
+  ]
+}

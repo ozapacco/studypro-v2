@@ -1,0 +1,36 @@
+{
+  "name": "studypro",
+  "version": "2.1.0",
+  "description": "Orquestrador Adaptativo de Estudos para Carreiras Policiais",
+  "private": true,
+  "workspaces": [
+    "mobile",
+    "web"
+  ],
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "dev": "npm run dev --workspaces --if-present",
+    "build": "npm run build --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "dev:api": "cd src && npm run dev",
+    "dev:mobile": "cd mobile && npm run dev",
+    "dev:web": "cd web && npm run dev"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "npm": ">=10.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "typescript": "^5.3.3",
+    "vitest": "^1.2.0"
+  },
+  "dependencies": {
+    "better-sqlite3": "^9.4.3",
+    "cors": "^2.8.5",
+    "express": "^4.18.2"
+  }
+}
