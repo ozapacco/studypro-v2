@@ -3,14 +3,11 @@ import { redirect } from 'next/navigation'
 import { signOut } from '@/lib/supabase/auth'
 
 export default async function DashboardPage() {
-  const supabase = createServerSupabaseClient()
-  
-  // Obter a sessão atual do usuário
-  const { data: { user }, error } = await supabase.auth.getUser()
+  // ATENÇÃO: Auth bypassado para permitir foco no desenvolvimento (Modo Offline/Dev)
+  //const supabase = createServerSupabaseClient()
+  //const { data: { user }, error } = await supabase.auth.getUser()
 
-  if (error || !user) {
-    redirect('/login')
-  }
+  const user = { email: "usuario@desenvolvimento.local" }
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
