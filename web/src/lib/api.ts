@@ -31,9 +31,13 @@ export async function getDashboard(userId: string) {
     return acc
   }, {} as Record<string, { c: number; t: number }>)
 
-  const weakest = Object.entries(subjectStats || {})
-    .filter(([, s]) => s.t >= 10)
-    .sort(([, a], [, b]) => (a.c / a.t) - (b.c / b.t))[0]
+  const weakest = Object.entries(subjectStats || {} as Record<string, { c: number; t: number }>)
+    .filter(([, s]) => (s as { c: number; t: number }).t >= 10)
+    .sort(([, a], [, b]) => {
+      const accA = a as { c: number; t: number };
+      const accB = b as { c: number; t: number };
+      return (accA.c / accA.t) - (accB.c / accB.t);
+    })[0]
 
   // Get due cards
   const { count: dueCards } = await supabase
