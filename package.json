@@ -30,11 +30,7 @@
     "typescript": "^5.3.3",
     "vitest": "^1.2.0"
   },
-  "dependencies": {
-    "better-sqlite3": "^9.4.3",
-    "cors": "^2.8.5",
-    "express": "^4.18.2"
-  },
+  "dependencies": {},
   "overrides": {
     "react": "18.2.0",
     "react-dom": "18.2.0"
