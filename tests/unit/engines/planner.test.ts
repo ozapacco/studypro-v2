@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { Mission, RecoveryEntry, Subject, TopicScore } from '../src/types';
+import type { Mission, RecoveryEntry, Subject, TopicScore } from '../../src/types';
 
 interface PlannerContext {
   subjects: Subject[];
@@ -81,6 +81,24 @@ const generateDailyMission = (ctx: PlannerContext): Mission => {
     completedCount: 0,
     dueDate: new Date(),
   };
+};
+
+const getProximityFactor = (daysUntilExam: number): number => {
+  if (daysUntilExam <= 7) return 1.5;
+  if (daysUntilExam <= 14) return 1.3;
+  if (daysUntilExam <= 30) return 1.1;
+  if (daysUntilExam <= 60) return 1.0;
+  return 0.9;
+};
+
+const getMissionReason = (mission: Mission, stats: { dueCards: number; newCards: number }): string => {
+  const reasons: Record<string, string> = {
+    review: `Você tem ${stats.dueCards} cards pendentes para revisão`,
+    questions: 'Hora de construir sua base de conhecimento',
+    mock: 'Simulado agendado para hoje',
+    recovery: 'Recuperação ativa recomendada após análise de desempenho',
+  };
+  return reasons[mission.type] || 'Missão do dia';
 };
 
 describe('PlannerEngine', () => {
@@ -170,6 +188,78 @@ describe('PlannerEngine', () => {
     it('should return final when < 4 weeks', () => {
       expect(determineStudyPhase(20)).toBe('final');
       expect(determineStudyPhase(7)).toBe('final');
+    });
+  });
+  
+  describe('getProximityFactor', () => {
+    it('should return 1.5 when <= 7 days', () => {
+      expect(getProximityFactor(7)).toBe(1.5);
+      expect(getProximityFactor(3)).toBe(1.5);
+      expect(getProximityFactor(1)).toBe(1.5);
+    });
+    
+    it('should return 1.3 when 8-14 days', () => {
+      expect(getProximityFactor(14)).toBe(1.3);
+      expect(getProximityFactor(8)).toBe(1.3);
+    });
+    
+    it('should return 1.1 when 15-30 days', () => {
+      expect(getProximityFactor(30)).toBe(1.1);
+      expect(getProximityFactor(15)).toBe(1.1);
+    });
+    
+    it('should return 1.0 when 31-60 days', () => {
+      expect(getProximityFactor(60)).toBe(1.0);
+      expect(getProximityFactor(31)).toBe(1.0);
+    });
+    
+    it('should return 0.9 when > 60 days', () => {
+      expect(getProximityFactor(90)).toBe(0.9);
+      expect(getProximityFactor(120)).toBe(0.9);
+    });
+  });
+  
+  describe('getMissionReason', () => {
+    it('should return correct reason for review mission', () => {
+      const mission: Mission = {
+        id: '1',
+        type: 'review',
+        subject: 'Penal',
+        topic: null,
+        targetCount: 10,
+        completedCount: 0,
+        dueDate: new Date(),
+      };
+      const stats = { dueCards: 10, newCards: 0, averageAccuracy: 0, streakDays: 0 } as any;
+      expect(getMissionReason(mission, stats)).toContain('cards pendentes');
+    });
+    
+    it('should return correct reason for questions mission', () => {
+      const mission: Mission = {
+        id: '1',
+        type: 'questions',
+        subject: 'Penal',
+        topic: null,
+        targetCount: 20,
+        completedCount: 0,
+        dueDate: new Date(),
+      };
+      const stats = { dueCards: 0, newCards: 20, averageAccuracy: 0, streakDays: 0 } as any;
+      expect(getMissionReason(mission, stats)).toContain('base de conhecimento');
+    });
+    
+    it('should return correct reason for recovery mission', () => {
+      const mission: Mission = {
+        id: '1',
+        type: 'recovery',
+        subject: 'Penal',
+        topic: null,
+        targetCount: 10,
+        completedCount: 0,
+        dueDate: new Date(),
+      };
+      const stats = { dueCards: 0, newCards: 0, averageAccuracy: 0, streakDays: 0 } as any;
+      expect(getMissionReason(mission, stats)).toContain('Recuperação');
     });
   });
 });

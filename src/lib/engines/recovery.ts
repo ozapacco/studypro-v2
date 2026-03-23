@@ -1,214 +1,130 @@
-import { db } from '../db';
-import type { RecoveryEntry, QuestionSession, Card } from '../../models';
 import type { RecoveryStatus, RecoveryReason, ErrorType } from '../../types';
 
 interface RecoveryTrigger {
   detected: boolean;
   reason: RecoveryReason;
+  subject: string;
   topic: string;
   errorCount: number;
 }
 
-const TRIGGER_THRESHOLDS = {
-  recurrent_error: 3,
-  mock_exam: 50,
-  never_learned: 0.3,
-  low_accuracy: 0.5,
-};
+const TRIGGER_THRESHOLD_LOW_ACCURACY = 0.6; // Se acurácia for < 60%
 
-export function evaluate(session: QuestionSession): RecoveryTrigger[] {
-  const triggers: RecoveryTrigger[] = [];
-  
-  if (session.incorrectCount >= TRIGGER_THRESHOLDS.recurrent_error) {
-    const total = session.correctCount + session.incorrectCount;
-    const errorRate = session.incorrectCount / total;
-    
-    if (errorRate >= 0.5) {
-      triggers.push({
-        detected: true,
-        reason: 'recurrent_error',
-        topic: session.topic,
-        errorCount: session.incorrectCount,
-      });
-    }
-  }
-  
-  if (session.correctCount + session.incorrectCount >= TRIGGER_THRESHOLDS.mock_exam) {
-    const accuracy = session.correctCount / (session.correctCount + session.incorrectCount);
-    
-    if (accuracy <= TRIGGER_THRESHOLDS.low_accuracy) {
-      triggers.push({
-        detected: true,
-        reason: 'mock_exam',
-        topic: session.topic,
-        errorCount: session.incorrectCount,
-      });
-    }
-  }
-  
-  const neverLearnedCount = session.errorTypes.filter(e => e === 'never_learned').length;
-  const totalErrors = session.incorrectCount;
-  
-  if (totalErrors > 0 && neverLearnedCount / totalErrors >= TRIGGER_THRESHOLDS.never_learned) {
-    triggers.push({
+export async function evaluateSessionForRecovery(
+  userId: string,
+  subject: string,
+  topic: string,
+  correct: number,
+  incorrect: number,
+  errorType: ErrorType
+): Promise<RecoveryTrigger | null> {
+  const total = correct + incorrect;
+  const accuracy = total > 0 ? (correct / total) : 0;
+
+  // Gatilho 1: Erro "Nunca Aprendi"
+  if (errorType === 'never_learned') {
+    return {
       detected: true,
       reason: 'never_learned',
-      topic: session.topic,
-      errorCount: neverLearnedCount,
-    });
+      subject,
+      topic,
+      errorCount: incorrect
+    };
   }
-  
-  return triggers;
+
+  // Gatilho 2: Baixa acurácia persistente (< 60%)
+  if (accuracy < TRIGGER_THRESHOLD_LOW_ACCURACY && total >= 5) {
+     return {
+        detected: true,
+        reason: 'low_accuracy',
+        subject,
+        topic,
+        errorCount: incorrect
+     };
+  }
+
+  return null;
 }
 
-export function triggerRecovery(session: QuestionSession): RecoveryEntry | null {
-  const triggers = evaluate(session);
-  
-  if (triggers.length === 0) return null;
-  
-  const primaryTrigger = triggers[0];
-  
-  const existingRecovery = db.find<RecoveryEntry>('recoveries', {
-    subject: session.subject,
-    topic: session.topic,
-    status: 'in_progress',
-  });
-  
-  if (existingRecovery) {
-    const accuracyHistory = JSON.parse(existingRecovery.accuracyHistory as unknown as string || '[]');
-    accuracyHistory.push(session.correctCount / (session.correctCount + session.incorrectCount));
-    
-    const avgAccuracy = accuracyHistory.reduce((a, b) => a + b, 0) / accuracyHistory.length;
-    
-    db.update('recoveries', existingRecovery.id, {
-      triggerCount: existingRecovery.triggerCount + 1,
-      accuracyHistory: accuracyHistory as unknown as string,
-    });
-    
-    return existingRecovery;
+export async function triggerRecovery(
+  supabase: any, // Passado como argumento para evitar problemas de RootDir
+  userId: string,
+  subject: string,
+  topic: string,
+  reason: RecoveryReason,
+  accuracy: number
+) {
+  // Verificar se já existe recuperação aberta
+  const { data: existing } = await supabase
+    .from('recovery_entries')
+    .select('id, trigger_count, accuracy_history')
+    .eq('user_id', userId)
+    .eq('subject', subject)
+    .eq('canonical_topic', topic)
+    .eq('status', 'in_progress')
+    .maybeSingle();
+
+  const plan = generateRecoveryPlan(reason, topic);
+
+  if (existing) {
+    const history = [...(existing.accuracy_history || []), accuracy];
+    await supabase
+      .from('recovery_entries')
+      .update({
+        trigger_count: (existing.trigger_count || 0) + 1,
+        accuracy_history: history,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', existing.id);
+    return existing.id;
+  } else {
+    const { data: created } = await supabase
+      .from('recovery_entries')
+      .insert({
+        user_id: userId,
+        subject,
+        canonical_topic: topic,
+        reason,
+        status: 'in_progress',
+        accuracy_history: [accuracy],
+        plan,
+        trigger_count: 1
+      })
+      .select()
+      .single();
+    return created?.id;
   }
-  
-  const cards = db.findAll<Card>('cards', { subject: session.subject, topic: session.topic });
-  const cardIds = cards.map(c => c.id).slice(0, 20);
-  
-  const plan = generateRecoveryPlan(primaryTrigger.reason, session.topic);
-  
-  const recovery = db.create('recoveries', {
-    subject: session.subject,
-    topic: session.topic,
-    reason: primaryTrigger.reason,
-    status: 'in_progress',
-    cardIds: cardIds as unknown as string,
-    triggerCount: 1,
-    accuracyHistory: [session.correctCount / (session.correctCount + session.incorrectCount)] as unknown as string,
-    plan,
-  }) as unknown as RecoveryEntry;
-  
-  return recovery;
 }
 
 function generateRecoveryPlan(reason: RecoveryReason, topic: string): string {
-  switch (reason) {
-    case 'recurrent_error':
-      return JSON.stringify({
-        steps: [
-          { action: 'review_concept', duration: 15, description: 'Revisar conceito fundamental do tópico' },
-          { action: 'practice_questions', count: 10, description: 'Resolver questões selecionadas' },
-          { action: 'spaced_review', interval: '1d', description: 'Revisão espacada por 1 dia' },
-        ],
-        focus: 'Focar em entender o porquê das respostas erradas',
-      });
-    case 'mock_exam':
-      return JSON.stringify({
-        steps: [
-          { action: 'diagnose_gaps', description: 'Diagnosticar lacunas de conhecimento' },
-          { action: 'intensive_study', duration: 30, description: 'Estudo intensivo do tópico' },
-          { action: 'targeted_practice', count: 20, description: 'Prática direcionada' },
-        ],
-        focus: 'Rever completo o tópico com ênfase em pontos fracos',
-      });
-    case 'never_learned':
-      return JSON.stringify({
-        steps: [
-          { action: 'initial_study', duration: 20, description: 'Estudo inicial do conceito' },
-          { action: 'basic_questions', count: 5, description: 'Questões básicas' },
-          { action: 'progressively_harder', count: 10, description: 'Progressivamente mais difícil' },
-        ],
-        focus: 'Construir base sólida do zero',
-      });
-    case 'low_accuracy':
-      return JSON.stringify({
-        steps: [
-          { action: 'review_fundamentals', duration: 25, description: 'Revisar fundamentos' },
-          { action: 'focus_weak_areas', description: 'Focar em áreas mais fracas' },
-          { action: 'consistent_practice', count: 15, description: 'Prática consistente' },
-        ],
-        focus: 'Aumentar precisão geral',
-      });
-    default:
-      return JSON.stringify({ steps: [] });
-  }
-}
-
-export function generateRecoveryPlan(reason: RecoveryReason, topic: string): string {
-  const plans: Record<RecoveryReason, object> = {
+  const plans: Record<RecoveryReason, any> = {
     recurrent_error: {
       steps: [
-        { action: 'review_concept', duration: 15 },
-        { action: 'practice_questions', count: 10 },
-        { action: 'spaced_review', interval: '1d' },
+        { action: 'review_theory', duration: 30, description: `Revisar teoria base de ${topic}` },
+        { action: 'fix_errors', count: 10, description: 'Refazer as últimas 10 questões erradas' }
       ],
+      method: 'Teoria + Prática'
     },
     mock_exam: {
       steps: [
-        { action: 'diagnose_gaps' },
-        { action: 'intensive_study', duration: 30 },
-        { action: 'targeted_practice', count: 20 },
+        { action: 'intensive_study', duration: 60, description: 'Estudo intensivo focado em falhas de simulado' }
       ],
+      method: 'Retomada de Base'
     },
     never_learned: {
       steps: [
-        { action: 'initial_study', duration: 20 },
-        { action: 'basic_questions', count: 5 },
-        { action: 'progressively_harder', count: 10 },
+        { action: 'video_lecture', duration: 45, description: `Assistir videoaula completa sobre ${topic}` },
+        { action: 'summary', description: 'Criar mapa mental ou resumo do zero' }
       ],
+      method: 'Construção de Base'
     },
     low_accuracy: {
       steps: [
-        { action: 'review_fundamentals', duration: 25 },
-        { action: 'focus_weak_areas' },
-        { action: 'consistent_practice', count: 15 },
+        { action: 'drill_questions', count: 20, description: 'Bateria de 20 questões nível fácil/médio' }
       ],
-    },
+      method: 'Reforço de Acurácia'
+    }
   };
-  
+
   return JSON.stringify(plans[reason] || { steps: [] });
-}
-
-export function getActiveRecoveries(): RecoveryEntry[] {
-  return db.findAll<RecoveryEntry>('recoveries', { status: 'in_progress' });
-}
-
-export function completeRecovery(id: string): void {
-  db.update('recoveries', id, {
-    status: 'done',
-    completedAt: new Date().toISOString(),
-  });
-}
-
-export function archiveRecovery(id: string): void {
-  db.update('recoveries', id, {
-    status: 'archived',
-    completedAt: new Date().toISOString(),
-  });
-}
-
-export function getRecoveryStats(): { active: number; completed: number; archived: number } {
-  const all = db.findAll<{ status: RecoveryStatus }>('recoveries');
-  
-  return {
-    active: all.filter(r => r.status === 'in_progress').length,
-    completed: all.filter(r => r.status === 'done').length,
-    archived: all.filter(r => r.status === 'archived').length,
-  };
 }

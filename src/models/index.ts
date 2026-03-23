@@ -136,6 +136,8 @@ export interface UserSettings {
   preferredPlatform?: Platform;
   reviewLimit: number;
   newCardsLimit: number;
+  examDate?: Date;
+  selectedExams?: string[];
   theme: 'light' | 'dark';
   createdAt: Date;
   updatedAt: Date;

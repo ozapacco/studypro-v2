@@ -1,5 +1,6 @@
 import type { Request, Response } from 'express';
 import { db } from '../../lib/db';
+import { determineStudyPhase, getDaysUntilExam } from '../../lib/engines/planner';
 
 const AVAILABLE_EXAMS = [
   'OAB',
@@ -66,7 +67,7 @@ export async function startOnboarding(req: Request, res: Response): Promise<void
 export async function updateStep(req: Request, res: Response): Promise<void> {
   try {
     const { step } = req.params;
-    const { selectedExams, selectedSubjects, dailyGoal, targetScore } = req.body;
+    const { selectedExams, selectedSubjects, dailyGoal, targetScore, examDate } = req.body;
     
     const progress = db.findOne<{ id: string; step: number; completed: boolean }>('onboarding_progress', req.body['id'] || 'default');
     
@@ -91,8 +92,8 @@ export async function updateStep(req: Request, res: Response): Promise<void> {
       updates.dailyGoal = dailyGoal;
     }
     
-    if (targetScore) {
-      updates.targetScore = targetScore;
+    if (examDate) {
+      updates.examDate = examDate;
     }
     
     db.update('onboarding_progress', progress.id, updates);
@@ -108,12 +109,15 @@ export async function updateStep(req: Request, res: Response): Promise<void> {
 
 export async function completeOnboarding(req: Request, res: Response): Promise<void> {
   try {
-    const progress = db.find<{ id: string; completed: boolean }>('onboarding_progress', { completed: false });
-    
+    const progress = db.find<{ id: string; dailyGoal:number; targetScore:number; examDate:string; selectedExams:string[] }>('onboarding_progress', { completed: false });
+
     if (!progress) {
       res.status(404).json({ error: 'No active onboarding progress' });
       return;
     }
+
+    const daysUntilExam = getDaysUntilExam(progress.examDate);
+    const studyPhase = determineStudyPhase(progress.targetScore, daysUntilExam, 0);
     
     db.update('onboarding_progress', progress.id, {
       completed: true,
@@ -121,14 +125,16 @@ export async function completeOnboarding(req: Request, res: Response): Promise<v
     });
     
     db.create('user_settings', {
-      id: 'default',
-      dailyGoal: 20,
-      studyPhase: 'base',
-      targetScore: 70,
+      user_id: progress.id,
+      dailyGoal: progress.dailyGoal,
+      studyPhase: studyPhase,
+      targetScore: progress.targetScore,
       preferredPlatform: null,
       reviewLimit: 50,
       newCardsLimit: 10,
       theme: 'light',
+      examDate: progress.examDate,
+      selectedExams: progress.selectedExams,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     });
@@ -138,6 +144,7 @@ export async function completeOnboarding(req: Request, res: Response): Promise<v
       message: 'Onboarding completed!',
     });
   } catch (error) {
+    console.error(error);
     res.status(500).json({ error: 'Failed to complete onboarding' });
   }
 }

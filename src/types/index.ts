@@ -42,6 +42,7 @@ export interface DailyMission {
   estimatedMinutes: number;
   totalQuestions: number;
   totalReviews: number;
+  explanation?: string;
 }
 
 export interface TopicScore {
@@ -57,4 +58,17 @@ export interface SubjectProgress {
   topics: TopicScore[];
   overallAccuracy: number;
   totalQuestions: number;
+}
+
+export interface TopicPerformance {
+  id: string;
+  user_id: string;
+  subject: string;
+  topic: string;
+  canonical_topic: string;
+  attempts: number;
+  errors: number;
+  accuracy: number;
+  recurrenceScore: number;
+  last_seen_at: string;
 }

@@ -292,6 +292,8 @@ CREATE TABLE public.user_settings (
     id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
     user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE UNIQUE,
     daily_time_available INTEGER DEFAULT 180,
+    exam_date DATE,
+    selected_exams TEXT[],
     preferred_platform platform DEFAULT 'qconcursos',
     dark_mode BOOLEAN DEFAULT false,
     target_accuracy INTEGER DEFAULT 70,
