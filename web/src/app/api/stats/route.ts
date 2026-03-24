@@ -46,13 +46,34 @@ export async function GET() {
     .eq('user_id', user.id)
     .order('accuracy', { ascending: false });
 
+  // 5. Recovery Stats (F2.7.5)
+  const { data: recoveryItems } = await supabase
+    .from('recovery_queue')
+    .select('status')
+    .eq('user_id', user.id);
+
+  const recoveryStats = {
+     open: recoveryItems?.filter(i => i.status === 'open' || i.status === 'in_progress').length || 0,
+     done: recoveryItems?.filter(i => i.status === 'done').length || 0,
+  };
+
+  // 6. Totais Globais
+  const { data: profile } = await supabase.from('profiles').select('total_questions, average_accuracy').eq('id', user.id).single();
+
   return NextResponse.json({
+    totals: {
+       questions: profile?.total_questions || 0,
+       accuracy: profile?.average_accuracy || 0
+    },
+    recovery: recoveryStats,
     heatmap: sessions || [],
     platforms,
-    weekly: Object.entries(weeklyStats).map(([key, val]) => ({
-      week: key,
-      accuracy: Math.round((val.hits / val.total) * 100)
-    })).slice(-8),
+    weekly: Object.entries(weeklyStats)
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([key, val]) => ({
+        week: key,
+        accuracy: Math.round((val.hits / val.total) * 100)
+      })).slice(-8),
     ranking: topics || []
   });
 }

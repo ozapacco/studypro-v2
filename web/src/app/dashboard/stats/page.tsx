@@ -60,20 +60,20 @@ export default function EstatisticasPage() {
             </div>
          </div>
          
-         <div className="grid grid-cols-2 gap-3">
-            <div className="bg-blue-600 p-5 rounded-[32px] text-white">
-               <span className="text-[10px] font-black uppercase tracking-widest opacity-60 text-white">Meta Semanal</span>
-               <p className="text-2xl font-black mt-1">82%</p>
-               <div className="flex items-center gap-1 mt-2 text-blue-100 italic font-black text-[10px]">
-                  <TrendingUp size={12} /> +2.1% sem
-               </div>
-            </div>
-            <div className="bg-slate-900 p-5 rounded-[32px] text-white">
-               <span className="text-[10px] font-black uppercase tracking-widest opacity-60 text-slate-400">Total Questões</span>
-               <p className="text-2xl font-black mt-1">1.240</p>
-               <p className="text-[10px] font-bold text-slate-400 mt-2 uppercase">Guerreiro Polonês</p>
-            </div>
-         </div>
+          <div className="grid grid-cols-2 gap-3">
+             <div className="bg-blue-600 p-5 rounded-[32px] text-white">
+                <span className="text-[10px] font-black uppercase tracking-widest opacity-60 text-white">Acurácia Geral</span>
+                <p className="text-2xl font-black mt-1">{data?.totals?.accuracy || 0}%</p>
+                <div className="flex items-center gap-1 mt-2 text-blue-100 italic font-black text-[10px]">
+                   <Target size={12} /> {data?.totals?.accuracy >= 70 ? '🎯 ALVO ATINGIDO' : '⚠️ ABAIXO DO ALVO'}
+                </div>
+             </div>
+             <div className="bg-slate-900 p-5 rounded-[32px] text-white">
+                <span className="text-[10px] font-black uppercase tracking-widest opacity-60 text-slate-400">Total Questões</span>
+                <p className="text-2xl font-black mt-1">{data?.totals?.questions?.toLocaleString() || 0}</p>
+                <p className="text-[10px] font-bold text-slate-400 mt-2 uppercase">Status: Operacional</p>
+             </div>
+          </div>
       </header>
 
       <div className="max-w-md mx-auto p-6 space-y-8">
@@ -102,14 +102,23 @@ export default function EstatisticasPage() {
                     <Tooltip 
                        contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', fontWeight: 'bold' }}
                     />
-                    <Line 
-                       type="monotone" 
-                       dataKey="accuracy" 
-                       stroke="#2563eb" 
-                       strokeWidth={4} 
-                       dot={{ r: 4, fill: '#2563eb', strokeWidth: 0 }}
-                       activeDot={{ r: 6, strokeWidth: 0 }}
-                    />
+                     <Line 
+                        type="monotone" 
+                        dataKey="accuracy" 
+                        stroke="#2563eb" 
+                        strokeWidth={4} 
+                        dot={{ r: 4, fill: '#2563eb', strokeWidth: 0 }}
+                        activeDot={{ r: 6, strokeWidth: 0 }}
+                     />
+                     <Line 
+                        type="step"
+                        dataKey={() => 70}
+                        stroke="#ef4444"
+                        strokeDasharray="4 4"
+                        strokeWidth={2}
+                        dot={false}
+                        name="Alvo (70%)"
+                     />
                  </LineChart>
               </ResponsiveContainer>
            </div>
@@ -132,25 +141,46 @@ export default function EstatisticasPage() {
            </div>
         </section>
 
+         {/* Fila de Recuperação Stats (F2.7.5) */}
+         <section className="bg-slate-900 p-6 rounded-[40px] shadow-xl text-white">
+            <h3 className="font-black text-xs tracking-widest uppercase mb-4 opacity-60">Status de Recuperação</h3>
+            <div className="flex justify-around items-center">
+               <div className="text-center">
+                  <p className="text-3xl font-black text-red-500">{data?.recovery?.open}</p>
+                  <span className="text-[9px] font-black opacity-50 uppercase">Pendentes</span>
+               </div>
+               <div className="w-px h-10 bg-white/10" />
+               <div className="text-center">
+                  <p className="text-3xl font-black text-green-500">{data?.recovery?.done}</p>
+                  <span className="text-[9px] font-black opacity-50 uppercase">Resolvidos</span>
+               </div>
+            </div>
+         </section>
         {/* Consistência (Heatmap Grid Simplified) */}
-        <section className="bg-white p-6 rounded-[40px] shadow-sm border border-slate-100">
-           <h3 className="font-black text-slate-900 text-sm tracking-widest uppercase mb-4 flex items-center gap-2">
-              <Calendar size={16} className="text-blue-600" />
-              Consistência (90 dias)
-           </h3>
-           <div className="grid grid-cols-13 gap-1">
-              {Array.from({ length: 91 }).map((_, i) => (
-                 <div 
-                   key={i} 
-                   className={cn(
-                     "w-full pt-[100%] rounded-[2px]",
-                     i % 5 === 0 ? "bg-blue-600" : i % 3 === 0 ? "bg-blue-200" : "bg-slate-100"
-                   )} 
-                 />
-              ))}
-           </div>
-           <p className="text-[10px] font-black text-slate-400 mt-4 uppercase text-center italic">Meta: Não quebrar a corrente polonesa.</p>
-        </section>
+         <section className="bg-white p-6 rounded-[40px] shadow-sm border border-slate-100">
+            <h3 className="font-black text-slate-900 text-sm tracking-widest uppercase mb-4 flex items-center gap-2">
+               <Calendar size={16} className="text-blue-600" />
+               Consistência (90 dias)
+            </h3>
+            <div className="grid grid-cols-13 gap-1">
+               {Array.from({ length: 91 }).map((_, i) => {
+                  const targetDate = new Date();
+                  targetDate.setDate(targetDate.getDate() - (90 - i));
+                  const dateStr = targetDate.toISOString().split('T')[0];
+                  const hasStudy = data?.heatmap?.find((s: any) => s.session_date.startsWith(dateStr));
+                  const intensity = hasStudy ? (hasStudy.total_questions >= 50 ? 'bg-blue-700' : 'bg-blue-400') : 'bg-slate-100';
+                  
+                  return (
+                    <div 
+                      key={i} 
+                      title={dateStr}
+                      className={cn("w-full pt-[100%] rounded-[2px]", intensity)} 
+                    />
+                  );
+               })}
+            </div>
+            <p className="text-[10px] font-black text-slate-400 mt-4 uppercase text-center italic">Meta: Não quebrar a corrente polonesa.</p>
+         </section>
 
         {/* Tópico Ranking */}
         <section className="space-y-4">
