@@ -21,6 +21,7 @@ import {
 import { cn, formatPercentage } from '@/lib/utils';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
+import { generateDailyMissionAsync } from '@/lib/engines/planner';
 
 async function getDashboardData() {
   const supabase = createServerSupabaseClient();
@@ -109,6 +110,8 @@ async function getDashboardData() {
   const totalHits = sessions?.reduce((acc, s) => acc + s.correct_answers, 0) || 0;
   const accuracy = totalQuestions > 0 ? (totalHits / totalQuestions) * 100 : 0;
 
+  const dailyMission = await generateDailyMissionAsync(user.id);
+
   return {
     user: {
       name: user.user_metadata?.full_name?.split(' ')[0] || 'Guerreiro',
@@ -123,20 +126,16 @@ async function getDashboardData() {
       criticalTopic: weakTopics?.[0]?.canonical_topic || '---'
     },
     mission: {
-      title: weakTopics?.[0] 
-        ? `${weakTopics[0].subject}` 
-        : 'Inicie seu Ciclo',
-      description: weakTopics?.[0]
-        ? `Resolver 20 questões de **${weakTopics[0].canonical_topic}**.`
-        : 'Sua meta é bater 50 questões hoje.',
-      reason: weakTopics?.[0]
-        ? `Subir sua média de ${Math.round(weakTopics[0].accuracy)}% neste tópico.`
-        : 'Manter a constância no radar polonês.',
-      progress: Math.min(100, Math.round((totalQuestions / 50) * 100)),
-      type: weakTopics?.[0] ? 'Focar Erros' : 'Meta Base',
-      explanation: weakTopics?.[0] 
-        ? "Priorizando seus pontos cegos para subir sua média geral."
-        : "Foco em manter a constância e bater a meta de questões."
+      title: dailyMission.missions[0]?.subject || 'Inicie seu Ciclo',
+      description: dailyMission.missions[0]?.topic 
+        ? `Prática de **${dailyMission.missions[0].topic}**.`
+        : 'Sua meta é manter a constância hoje.',
+      reason: dailyMission.explanation,
+      progress: dailyMission.missions[0]?.targetCount 
+        ? Math.min(100, Math.round((totalQuestions / dailyMission.missions[0].targetCount) * 100))
+        : 0,
+      type: dailyMission.missions[0]?.type === 'review' ? 'Manutenção' : 'Reforço',
+      explanation: dailyMission.explanation
     },
     recoveryQueue: recoveryQueue || []
   };

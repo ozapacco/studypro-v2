@@ -1,7 +1,7 @@
-import type { StudyPhase, Mission, MissionType, DailyMission, TopicPerformance } from '../../types';
+import type { StudyPhase, Mission, MissionType, DailyMission, TopicPerformance } from '@/types';
 // Importação simulada do banco para Next.js (Deveria vir de API em produção, mas o planner aqui usa cache/local)
 // Para o modo 'Pós-Impacto', o planner precisa saber se houve simulado recente via Supabase.
-import { createServerSupabaseClient } from '../../../web/src/lib/supabase/server';
+import { createServerSupabaseClient } from '../supabase/server';
 
 interface DailyStats {
   totalCards: number;
@@ -22,6 +22,12 @@ export function determineStudyPhase(targetScore: number, daysUntilExam: number, 
   if (daysUntilExam <= 7) return 'final';
   if (daysUntilExam <= 21 || currentAccuracy >= targetScore - 5) return 'intensification';
   return 'base';
+}
+
+export function calculatePriority(weight: number, currentAccuracy: number, targetAccuracy: number): number {
+  const threshold = targetAccuracy || 70;
+  const gap = Math.max(0, (threshold - currentAccuracy) / threshold);
+  return weight * (1 + gap);
 }
 
 function getPhaseWeights(phase: StudyPhase) {
@@ -62,12 +68,13 @@ export async function generateDailyMissionAsync(userId: string): Promise<DailyMi
   const supabase = createServerSupabaseClient();
   
   // 1. Fetch data
-  const { data: settings } = await supabase.from('user_settings').select('*').eq('user_id', userId).single();
-  const { data: topics } = await supabase.from('topic_performance').select('*').eq('user_id', userId);
+  const { data: settings } = await supabase.from('profiles').select('*').eq('id', userId).single();
+  const { data: topics } = await supabase.from('topic_performance').select('*').eq('id', userId);
+  const { data: subjects } = await supabase.from('subjects').select('*'); // Should be filtered by active exam ideally
   const { count: dueCards } = await supabase.from('cards').select('*', { count: 'exact', head: true }).eq('user_id', userId).lte('due_date', new Date().toISOString());
   
   const mockImpact = await getMockImpact(userId);
-  const dailyMinutesActive = settings?.daily_goal || 120;
+  const dailyMinutesActive = settings?.daily_time_minutes || 180;
   const timePerItem = 2.0;
   const maxItemsToday = Math.floor(dailyMinutesActive / timePerItem);
 
@@ -78,7 +85,7 @@ export async function generateDailyMissionAsync(userId: string): Promise<DailyMi
 
   // 1. REPRODUÇÃO DE ERROS DO SIMULADO (PRIORIDADE F3.1)
   if (mockImpact && mockImpact.isFailed && mockImpact.criticalTopics.length > 0) {
-      const target = Math.min(itemsRemaining, 15);
+      const target = Math.min(itemsRemaining, 20);
       missions.push({
         id: crypto.randomUUID(),
         type: 'questions',
@@ -92,9 +99,9 @@ export async function generateDailyMissionAsync(userId: string): Promise<DailyMi
       itemsRemaining -= target;
   }
 
-  // 2. REVISÕES PENDENTES
+  // 2. REVISÕES PENDENTES (FSRS)
   if (dueCards && itemsRemaining > 0) {
-    const reviewTarget = Math.min(dueCards, itemsRemaining, settings?.review_limit || 50);
+    const reviewTarget = Math.min(dueCards, itemsRemaining, settings?.fsrs_daily_limit || 100);
     missions.push({
       id: crypto.randomUUID(),
       type: 'review',
@@ -108,30 +115,45 @@ export async function generateDailyMissionAsync(userId: string): Promise<DailyMi
     itemsRemaining -= reviewTarget;
   }
 
-  // 3. AVANÇO (Tópico Crítico Geral)
-  if (itemsRemaining > 5) {
-     const sortedTopics = (topics || []).sort((a,b) => (b.recurrence_score || 0) - (a.recurrence_score || 0));
-     const topTopic = sortedTopics[0];
-     if (topTopic) {
-        const questionsTarget = Math.min(itemsRemaining, settings?.new_cards_limit || 30);
-        missions.push({
-          id: crypto.randomUUID(),
-          type: 'questions',
-          subject: topTopic.subject,
-          topic: topTopic.canonical_topic,
-          targetCount: questionsTarget,
-          completedCount: 0,
-          dueDate: new Date(),
-        });
-        totalQuestions += questionsTarget;
-     }
+  // 3. AVANÇO E REFORÇO (Baseado em Pesos + Gaps F1.7)
+  if (itemsRemaining > 10 && subjects && subjects.length > 0) {
+     // Calcular prioridade para cada matéria
+     const subjectsWithPriority = subjects.map(s => ({
+       ...s,
+       calculatedPriority: calculatePriority(s.weight, Number(s.current_accuracy), s.target_accuracy)
+     })).sort((a,b) => b.calculatedPriority - a.calculatedPriority);
+
+     const topSubject = subjectsWithPriority[0];
+     
+     // Buscar tópico crítico desta matéria
+     const { data: subjectTopics } = await supabase
+       .from('topic_performance')
+       .select('*')
+       .eq('user_id', userId)
+       .eq('subject', topSubject.name)
+       .order('accuracy', { ascending: true })
+       .limit(1);
+
+     const targetTopic = subjectTopics?.[0]?.canonical_topic || 'Geral';
+     const questionsTarget = Math.min(itemsRemaining, settings?.fsrs_daily_new || 30);
+
+     missions.push({
+       id: crypto.randomUUID(),
+       type: 'questions',
+       subject: topSubject.name,
+       topic: targetTopic,
+       targetCount: questionsTarget,
+       completedCount: 0,
+       dueDate: new Date(),
+     });
+     totalQuestions += questionsTarget;
   }
 
   const explanation = mockImpact?.isFailed 
-    ? `🚨 **Modo Pós-Impacto**: Priorizando ${mockImpact.criticalTopics[0]} devido ao resultado do último simulado.`
+    ? `🚨 **Modo Pós-Impacto**: Foco total em reduzir o dano do último simulado.`
     : totalReviews > totalQuestions 
-      ? "Dia focado em consolidar o radar polonês (muita revisão)."
-      : "Rumo ao topo: equilíbrio entre avanço e manutenção.";
+      ? "Dia de manutenção: limpando as pendências do radar polonês."
+      : `Estratégia: Priorizando **${missions.find(m => m.type === 'questions')?.subject}** devido ao alto peso no edital e gap de acertos.`;
 
   return {
     date: new Date().toISOString().split('T')[0],
