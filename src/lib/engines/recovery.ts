@@ -47,48 +47,45 @@ export async function evaluateSessionForRecovery(
 }
 
 export async function triggerRecovery(
-  supabase: any, // Passado como argumento para evitar problemas de RootDir
+  supabase: any,
   userId: string,
   subject: string,
   topic: string,
   reason: RecoveryReason,
-  accuracy: number
+  accuracy: number,
+  sessionId?: string
 ) {
   // Verificar se já existe recuperação aberta
   const { data: existing } = await supabase
-    .from('recovery_entries')
-    .select('id, trigger_count, accuracy_history')
+    .from('recovery_queue')
+    .select('id, status')
     .eq('user_id', userId)
     .eq('subject', subject)
     .eq('canonical_topic', topic)
-    .eq('status', 'in_progress')
+    .in('status', ['open', 'in_progress'])
     .maybeSingle();
 
-  const plan = generateRecoveryPlan(reason, topic);
+  const suggestedActions = generateRecoveryPlan(reason, topic);
 
   if (existing) {
-    const history = [...(existing.accuracy_history || []), accuracy];
     await supabase
-      .from('recovery_entries')
+      .from('recovery_queue')
       .update({
-        trigger_count: (existing.trigger_count || 0) + 1,
-        accuracy_history: history,
         updated_at: new Date().toISOString()
       })
       .eq('id', existing.id);
     return existing.id;
   } else {
     const { data: created } = await supabase
-      .from('recovery_entries')
+      .from('recovery_queue')
       .insert({
         user_id: userId,
         subject,
         canonical_topic: topic,
         reason,
-        status: 'in_progress',
-        accuracy_history: [accuracy],
-        plan,
-        trigger_count: 1
+        status: 'open',
+        suggested_actions: suggestedActions,
+        created_from_session_id: sessionId
       })
       .select()
       .single();

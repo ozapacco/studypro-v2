@@ -116,13 +116,33 @@ export async function POST(request: Request) {
       subject,
       topic,
       recoveryTrigger.reason,
-      hits / questions
+      hits / questions,
+      session.id
     );
   }
+
+  // 5. FETCH FEEDBACK DATA
+  const { data: performance } = await supabase
+    .from('topic_performance')
+    .select('accuracy, attempts, errors')
+    .eq('user_id', user.id)
+    .eq('subject', subject)
+    .eq('canonical_topic', topic)
+    .single();
+
+  const currentAccuracy = (hits / questions) * 100;
+  const historicalAccuracy = performance?.accuracy || 0;
+  const delta = currentAccuracy - historicalAccuracy;
 
   return NextResponse.json({
     success: true,
     sessionId: session.id,
-    recoveryTriggered: !!recoveryTrigger
+    recoveryTriggered: !!recoveryTrigger,
+    feedback: {
+      accuracy: Math.round(currentAccuracy),
+      historical: Math.round(historicalAccuracy),
+      delta: Math.round(delta),
+      status: currentAccuracy >= 80 ? 'Excelente' : currentAccuracy >= 70 ? 'Na Meta' : 'Abaixo da Meta'
+    }
   });
 }

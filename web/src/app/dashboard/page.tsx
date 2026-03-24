@@ -14,7 +14,9 @@ import {
   BarChart3,
   Calendar,
   Flame,
-  LayoutDashboard
+  LayoutDashboard,
+  Clock,
+  ChevronRight
 } from 'lucide-react';
 import { cn, formatPercentage } from '@/lib/utils';
 import Link from 'next/link';
@@ -46,14 +48,62 @@ async function getDashboardData() {
     .eq('user_id', user.id)
     .lte('due', new Date().toISOString());
 
-  // 3. Matéria fraca
+  // 3. Matéria fraca e Tópico crítico
   const { data: weakTopics } = await supabase
     .from('topic_performance')
-    .select('subject, canonical_topic, accuracy')
+    .select('subject, canonical_topic, accuracy, attempts')
     .eq('user_id', user.id)
-    .lt('accuracy', 70)
+    .gt('attempts', 5) // Mínimo de amostragem
     .order('accuracy', { ascending: true })
-    .limit(1);
+    .limit(3);
+
+  const { data: weakSubject } = await supabase
+    .from('subjects')
+    .select('name, current_accuracy')
+    .eq('user_id', user.id)
+    .order('current_accuracy', { ascending: true })
+    .limit(1)
+    .single()
+    .catch(() => ({ data: null })); // Handle cases with no data
+
+  // 4. Fila de Recuperação (F2.3)
+  const { data: recoveryQueue } = await supabase
+    .from('recovery_queue')
+    .select('*')
+    .eq('user_id', user.id)
+    .in('status', ['open', 'in_progress'])
+    .order('created_at', { ascending: false });
+
+  // 4. Calcular Streak Real
+  const { data: allSessions } = await supabase
+    .from('question_sessions')
+    .select('session_date')
+    .eq('user_id', user.id)
+    .order('session_date', { ascending: false });
+
+  let streak = 0;
+  if (allSessions && allSessions.length > 0) {
+    const dates = Array.from(new Set(allSessions.map(s => (s.session_date as string).split('T')[0])));
+    const todayStr = new Date().toISOString().split('T')[0];
+    
+    // Se a última sessão não foi hoje nem ontem, streak é 0
+    const lastSessionDate = dates[0];
+    const diff = (new Date(todayStr).getTime() - new Date(lastSessionDate).getTime()) / (1000 * 3600 * 24);
+    
+    if (diff <= 1) {
+      streak = 1;
+      for (let i = 0; i < dates.length - 1; i++) {
+        const d1 = new Date(dates[i]);
+        const d2 = new Date(dates[i+1]);
+        const dayDiff = (d1.getTime() - d2.getTime()) / (1000 * 3600 * 24);
+        if (dayDiff === 1) {
+          streak++;
+        } else {
+          break;
+        }
+      }
+    }
+  }
 
   const totalQuestions = sessions?.reduce((acc, s) => acc + s.total_questions, 0) || 0;
   const totalHits = sessions?.reduce((acc, s) => acc + s.correct_answers, 0) || 0;
@@ -68,7 +118,9 @@ async function getDashboardData() {
       totalQuestions,
       accuracy: Math.round(accuracy),
       dueCards: dueCards || 0,
-      streak: 1 // Hardcoded streak por enquanto
+      streak: streak || 0,
+      weakSubject: weakSubject?.name || '---',
+      criticalTopic: weakTopics?.[0]?.canonical_topic || '---'
     },
     mission: {
       title: weakTopics?.[0] 
@@ -85,13 +137,14 @@ async function getDashboardData() {
       explanation: weakTopics?.[0] 
         ? "Priorizando seus pontos cegos para subir sua média geral."
         : "Foco em manter a constância e bater a meta de questões."
-    }
+    },
+    recoveryQueue: recoveryQueue || []
   };
 }
 
 export default async function DashboardPage() {
   const data = await getDashboardData();
-  const { user, stats, mission } = data;
+  const { user, stats, mission, recoveryQueue } = data;
 
   return (
     <div className="flex flex-col min-h-screen pb-20 bg-slate-50">
@@ -165,53 +218,134 @@ export default async function DashboardPage() {
           </Link>
         )}
 
-        {/* Missão do Dia (The Spotlight) */}
-        <section className="bg-white rounded-[40px] p-8 shadow-xl shadow-slate-200/50 border border-slate-100">
-           <div className="flex justify-between items-center mb-6">
-              <div className="flex items-center gap-2">
-                 <Zap size={18} className="text-blue-600 fill-blue-600" />
-                 <h3 className="font-black text-slate-900 tracking-tight uppercase text-xs tracking-widest">Missão do Dia</h3>
-              </div>
-              <span className={cn(
-                "px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-tighter",
-                mission.type === 'Focar Erros' ? "bg-amber-100 text-amber-700" : "bg-blue-100 text-blue-700"
-              )}>
-                {mission.type}
-              </span>
+        {/* Health Panel (F1.6.2) */}
+        <section className="bg-white rounded-[40px] p-6 shadow-sm border border-slate-100">
+           <div className="flex items-center justify-between mb-6">
+              <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest">Health Panel</h3>
+              <div className="px-2 py-1 bg-green-50 text-green-600 text-[10px] font-black rounded-lg">SISTEMA OK</div>
            </div>
-
-           <h2 className="text-3xl font-black text-slate-900 mb-2 leading-tight">
-             {mission.title}
-           </h2>
-           <p className="text-slate-600 font-medium mb-8 leading-relaxed">
-             {mission.description}
-             <span className="block mt-2 text-xs text-blue-600 font-bold italic">{mission.explanation}</span>
-           </p>
-
+           
            <div className="space-y-4">
-              <div className="flex justify-between items-end mb-1">
-                 <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Progresso da Operação</span>
-                 <span className="text-blue-600 font-black text-sm">{mission.progress}%</span>
+              <div className="flex items-center justify-between p-2">
+                 <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-400">
+                       <Target size={18} />
+                    </div>
+                    <div>
+                       <p className="text-[10px] font-black text-slate-400 uppercase leading-none">Ponto Cego</p>
+                       <h4 className="font-bold text-slate-900 text-sm truncate max-w-[150px]">{stats.criticalTopic}</h4>
+                    </div>
+                 </div>
+                 <div className="text-right">
+                    <p className="text-[10px] font-black text-slate-400 uppercase leading-none">Crítico</p>
+                    <span className="text-xs font-black text-red-500">AÇÃO IMEDIATA</span>
+                 </div>
               </div>
-              <div className="w-full h-4 bg-slate-100 rounded-full overflow-hidden">
-                 <div 
-                   className="h-full bg-blue-600 rounded-full transition-all duration-1000" 
-                   style={{ width: `${mission.progress}%` }} 
-                 />
-              </div>
-           </div>
 
-           <div className="flex gap-3 mt-8">
-              <Link href="/dashboard/registrar" className="flex-1">
-                <Button className="w-full py-8 h-12 rounded-2xl shadow-lg shadow-blue-200 font-black text-lg">
-                   Registrar Treino
-                   <Plus size={20} className="ml-2" />
-                </Button>
-              </Link>
+              <div className="flex items-center justify-between p-2">
+                 <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-400">
+                       <Clock size={18} />
+                    </div>
+                    <div>
+                       <p className="text-[10px] font-black text-slate-400 uppercase leading-none">Matéria Fraca</p>
+                       <h4 className="font-bold text-slate-900 text-sm">{stats.weakSubject}</h4>
+                    </div>
+                 </div>
+                 <div className="text-right">
+                    <p className="text-[10px] font-black text-slate-400 uppercase leading-none">Cards</p>
+                    <span className="text-xs font-black text-blue-600">{stats.dueCards} Rev.</span>
+                 </div>
+              </div>
            </div>
         </section>
 
-        {/* Activity Feed / Health */}
+        {/* Fila de Recuperação (F2.3) */}
+        {recoveryQueue && recoveryQueue.length > 0 && (
+          <section className="space-y-4">
+             <div className="flex justify-between items-center px-2">
+                <h3 className="font-black text-slate-900 text-sm uppercase tracking-widest flex items-center gap-2">
+                   <RotateCcw size={16} className="text-amber-600" />
+                   Fila de Recuperação
+                </h3>
+                <span className="text-[10px] font-black bg-amber-100 text-amber-700 px-2 py-1 rounded-full uppercase">
+                   {recoveryQueue.length} {recoveryQueue.length === 1 ? 'Tópico' : 'Tópicos'}
+                </span>
+             </div>
+             
+             <div className="space-y-3">
+                {recoveryQueue.map((item: any) => (
+                  <div key={item.id} className="bg-white rounded-3xl p-5 border border-slate-100 shadow-sm relative overflow-hidden group">
+                     <div className="absolute left-0 top-0 bottom-0 w-1 bg-amber-500" />
+                     <div className="flex justify-between items-start mb-2">
+                        <div>
+                           <span className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">{item.subject}</span>
+                           <h4 className="font-bold text-slate-900 text-sm truncate max-w-[200px]">{item.canonical_topic}</h4>
+                        </div>
+                        <div className="p-2 bg-amber-50 rounded-xl group-hover:scale-110 transition-transform">
+                           <Zap size={14} className="text-amber-500" />
+                        </div>
+                     </div>
+                     <p className="text-[10px] text-slate-500 font-medium mb-4">
+                        {item.reason === 'never_learned' ? '🚨 Base fraca detectada' : '🩹 Acurácia crítica'}
+                     </p>
+                     <Link href={`/dashboard/recuperacao/${item.id}`} className="block">
+                        <Button className="w-full h-10 text-[10px] font-black uppercase text-amber-700 bg-amber-50 hover:bg-amber-100 border-none shadow-none rounded-xl">
+                           Iniciar Plano de Ação
+                        </Button>
+                     </Link>
+                  </div>
+                ))}
+             </div>
+          </section>
+        )}
+
+        {/* Mission Card (F1.6.1) */}
+        <section className="bg-blue-600 rounded-[40px] p-8 text-white shadow-xl shadow-blue-200 relative overflow-hidden group">
+          <div className="absolute -right-4 -top-4 w-32 h-32 bg-white/10 rounded-full blur-3xl" />
+          
+          <div className="relative z-10">
+            <div className="flex items-center justify-between mb-6">
+               <span className="bg-white/20 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest backdrop-blur-md">
+                 {mission.type}
+               </span>
+               <Target size={20} className="text-blue-200" />
+            </div>
+
+            <h2 className="text-3xl font-black leading-tight mb-2">
+              {mission.title}
+            </h2>
+            <p className="text-blue-100 text-sm font-medium mb-6">
+              {mission.description}
+            </p>
+
+            <div className="space-y-4">
+              <div className="flex justify-between items-end mb-1">
+                 <span className="text-[10px] font-black text-blue-200 uppercase tracking-widest">Progresso da Missão</span>
+                 <span className="text-lg font-black">{mission.progress}%</span>
+              </div>
+              <div className="h-3 bg-blue-900/40 rounded-full overflow-hidden border border-white/10">
+                <div 
+                  className="h-full bg-white rounded-full transition-all duration-1000 ease-out"
+                  style={{ width: `${mission.progress}%` }}
+                />
+              </div>
+              <p className="text-[10px] text-blue-200 italic font-medium pt-2">
+                 “{mission.explanation}”
+              </p>
+            </div>
+
+            <div className="mt-8 flex gap-3">
+               <Link href="/dashboard/registrar" className="flex-1">
+                  <Button className="w-full bg-white text-blue-700 hover:bg-blue-50 h-14 rounded-2xl font-black shadow-lg">
+                    Registrar Treino
+                  </Button>
+               </Link>
+            </div>
+          </div>
+        </section>
+
+        {/* Activity Feed */}
         <section className="space-y-4">
            <div className="flex justify-between items-center px-2">
               <h3 className="font-black text-slate-900 text-sm uppercase tracking-widest">Atividade Recente</h3>
@@ -226,21 +360,18 @@ export default async function DashboardPage() {
                     <BarChart3 size={24} />
                  </div>
                  <div>
-                    <h4 className="font-bold text-slate-900 text-sm">Resumo da Semana</h4>
-                    <p className="text-xs text-slate-500 font-medium">{stats.totalQuestions} questões resolvidas.</p>
+                    <h4 className="font-bold text-slate-900 text-sm">Resumo do Dia</h4>
+                    <p className="text-xs text-slate-500 font-medium">{stats.totalQuestions} questões hoje.</p>
                  </div>
               </div>
               <div className="text-right">
-                 <p className="font-black text-slate-900 leading-none">+{stats.accuracy}%</p>
-                 <span className="text-[10px] text-green-600 font-bold uppercase">Tendência</span>
+                 <p className="font-black text-slate-900 leading-none">{stats.accuracy}%</p>
+                 <span className="text-[10px] text-green-600 font-bold uppercase">Taxa</span>
               </div>
            </div>
         </section>
 
       </main>
-      
-      {/* Bottom Padding for Navbar */}
-      <div className="h-10" />
     </div>
   );
 }

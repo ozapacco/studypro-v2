@@ -12,10 +12,14 @@ import {
   ChevronRight,
   TrendingUp,
   Target,
-  Search
+  Search,
+  Zap,
+  RotateCcw,
+  Loader2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
+import { useEffect } from 'react';
 
 const SUBJECTS = [
   'Direito Penal',
@@ -52,6 +56,44 @@ export default function RegistrarSessionPage() {
   const [platform, setPlatform] = useState('qconcursos');
   const [errorType, setErrorType] = useState('forgot');
   const [difficulty, setDifficulty] = useState(3);
+  
+  // Feedback states
+  const [showResult, setShowResult] = useState(false);
+  const [feedback, setFeedback] = useState<{
+    accuracy: number;
+    historical: number;
+    delta: number;
+    status: string;
+    recoveryTriggered: boolean;
+  } | null>(null);
+
+  // Autocomplete states
+  const [availableSubjects, setAvailableSubjects] = useState<string[]>([]);
+  const [topicSuggestions, setTopicSuggestions] = useState<{canonical: string, aliases: string[]}[]>([]);
+  const [searchingTopics, setSearchingTopics] = useState(false);
+
+  useEffect(() => {
+    fetch('/api/subjects')
+      .then(res => res.json())
+      .then(data => setAvailableSubjects(data));
+  }, []);
+
+  useEffect(() => {
+    if (subject && topic.length > 2) {
+      setSearchingTopics(true);
+      const timer = setTimeout(() => {
+        fetch(`/api/subjects?subject=${encodeURIComponent(subject)}&q=${encodeURIComponent(topic)}`)
+          .then(res => res.json())
+          .then(data => {
+            setTopicSuggestions(data);
+            setSearchingTopics(false);
+          });
+      }, 300);
+      return () => clearTimeout(timer);
+    } else {
+      setTopicSuggestions([]);
+    }
+  }, [subject, topic]);
 
   const accuracy = questions > 0 ? Math.round((hits / questions) * 100) : 0;
 
@@ -79,8 +121,12 @@ export default function RegistrarSessionPage() {
       });
 
       if (res.ok) {
-        // Redireciona com um pequeno delay para mostrar sucesso
-        setTimeout(() => router.push('/dashboard'), 1000);
+        const data = await res.json();
+        setFeedback({
+           ...data.feedback,
+           recoveryTriggered: data.recoveryTriggered
+        });
+        setShowResult(true);
       } else {
         alert('Erro ao registrar sessão.');
       }
@@ -104,9 +150,10 @@ export default function RegistrarSessionPage() {
         <section className="space-y-4">
           <label className="text-xs font-black uppercase text-slate-400 tracking-widest ml-1">Matéria e Assunto</label>
           <div className="grid grid-cols-2 gap-3 overflow-x-auto pb-2 no-scrollbar">
-            {SUBJECTS.slice(0, 4).map((s) => (
+            {(availableSubjects.length > 0 ? availableSubjects : SUBJECTS).slice(0, 6).map((s: string) => (
               <button
                 key={s}
+                type="button"
                 onClick={() => setSubject(s)}
                 className={cn(
                   "p-3 rounded-2xl border-2 transition-all font-bold text-xs whitespace-nowrap text-center",
@@ -117,40 +164,70 @@ export default function RegistrarSessionPage() {
               </button>
             ))}
           </div>
-          <input 
-            type="text" 
-            placeholder="Assunto (ex: Inquérito Policial)"
-            value={topic}
-            onChange={(e) => setTopic(e.target.value)}
-            className="w-full p-5 bg-white border-2 border-white rounded-2xl font-bold shadow-sm focus:border-blue-600 transition-all outline-none"
-          />
+          <div className="relative group">
+            <input 
+              type="text" 
+              placeholder="Assunto (ex: Inquérito Policial)"
+              value={topic}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setTopic(e.target.value)}
+              className="w-full p-5 bg-white border-2 border-white rounded-2xl font-bold shadow-sm focus:border-blue-600 transition-all outline-none pr-12"
+            />
+            <div className="absolute right-5 top-1/2 -translate-y-1/2">
+               {searchingTopics ? (
+                 <Loader2 size={18} className="text-blue-600 animate-spin" />
+               ) : (
+                 <Search size={18} className="text-slate-300" />
+               )}
+            </div>
+            
+            {topicSuggestions.length > 0 && (
+              <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-xl border border-slate-100 p-2 z-20 animate-in fade-in slide-in-from-top-2">
+                 {topicSuggestions.map((ts, idx: number) => (
+                   <button
+                     key={idx}
+                     type="button"
+                     onClick={() => {
+                        setTopic(ts.canonical);
+                        setTopicSuggestions([]);
+                     }}
+                     className="w-full text-left p-3 hover:bg-slate-50 rounded-xl transition-colors flex flex-col"
+                   >
+                     <span className="font-bold text-sm text-slate-900">{ts.canonical}</span>
+                     {ts.aliases.length > 0 && (
+                       <span className="text-[10px] text-slate-400 font-medium">Aliás: {ts.aliases.join(', ')}</span>
+                     )}
+                   </button>
+                 ))}
+              </div>
+            )}
+          </div>
         </section>
 
         {/* Questões e Acertos */}
         <section className="grid grid-cols-2 gap-4">
           <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 text-center relative overflow-hidden group">
             <div className="absolute top-2 right-2 flex flex-col gap-1">
-              <button onClick={() => setQuestions(q => q + 1)} className="p-1 hover:bg-slate-50 rounded"><Plus size={14} /></button>
-              <button onClick={() => setQuestions(q => Math.max(1, q - 1))} className="p-1 hover:bg-slate-50 rounded"><Minus size={14} /></button>
+              <button type="button" onClick={() => setQuestions((q: number) => q + 1)} className="p-1 hover:bg-slate-50 rounded"><Plus size={14} /></button>
+              <button type="button" onClick={() => setQuestions((q: number) => Math.max(1, q - 1))} className="p-1 hover:bg-slate-50 rounded"><Minus size={14} /></button>
             </div>
             <span className="text-xs font-black text-slate-400 uppercase tracking-widest block mb-2">Total</span>
             <input 
               type="number" 
               value={questions}
-              onChange={(e) => setQuestions(Number(e.target.value))}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setQuestions(Number(e.target.value))}
               className="text-4xl font-black text-slate-900 w-full text-center bg-transparent outline-none"
             />
           </div>
           <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 text-center relative overflow-hidden group">
             <div className="absolute top-2 right-2 flex flex-col gap-1">
-              <button onClick={() => setHits(h => Math.min(questions, h + 1))} className="p-1 hover:bg-slate-50 rounded text-green-600"><Plus size={14} /></button>
-              <button onClick={() => setHits(h => Math.max(0, h - 1))} className="p-1 hover:bg-slate-50 rounded"><Minus size={14} /></button>
+              <button type="button" onClick={() => setHits((h: number) => Math.min(questions, h + 1))} className="p-1 hover:bg-slate-50 rounded text-green-600"><Plus size={14} /></button>
+              <button type="button" onClick={() => setHits((h: number) => Math.max(0, h - 1))} className="p-1 hover:bg-slate-50 rounded"><Minus size={14} /></button>
             </div>
             <span className="text-xs font-black text-slate-400 uppercase tracking-widest block mb-2">Acertos</span>
             <input 
               type="number" 
               value={hits}
-              onChange={(e) => setHits(Number(e.target.value))}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setHits(Number(e.target.value))}
               className="text-4xl font-black text-green-600 w-full text-center bg-transparent outline-none"
             />
           </div>
@@ -242,6 +319,83 @@ export default function RegistrarSessionPage() {
           <div className="absolute inset-0 bg-white/10 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
         </Button>
       </div>
+
+      {/* SUCCESS SCREEN OVERLAY */}
+      {showResult && feedback && (
+        <div className="fixed inset-0 z-50 bg-white flex flex-col items-center justify-center p-8 animate-in fade-in duration-500">
+           <div className="flex-1 flex flex-col items-center justify-center w-full max-w-md space-y-10">
+              
+              {/* Status Header */}
+              <div className="text-center space-y-2">
+                 <div className="w-16 h-16 bg-blue-600 rounded-3xl flex items-center justify-center text-white mx-auto shadow-xl shadow-blue-200 animate-bounce">
+                    <CheckCircle2 size={32} />
+                 </div>
+                 <h2 className="text-3xl font-black text-slate-900 leading-tight pt-4">Sessão Consolidada</h2>
+                 <p className="text-slate-500 font-bold uppercase tracking-widest text-[10px]">Diagnóstico Completo da Operação</p>
+              </div>
+
+              {/* Stats Cards */}
+              <div className="grid grid-cols-1 w-full gap-4">
+                 
+                 {/* Main Accuracy */}
+                 <div className="bg-slate-50 border border-slate-100 p-8 rounded-[40px] text-center relative overflow-hidden group">
+                     <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block">Performance Operacional</span>
+                     <div className="flex items-center justify-center gap-3">
+                        <span className="text-6xl font-black text-slate-900">{feedback.accuracy}%</span>
+                        <div className="flex flex-col items-start leading-none mt-2">
+                           {feedback.delta >= 0 ? (
+                             <>
+                               <span className="text-green-600 font-black text-lg">+{feedback.delta}%</span>
+                               <span className="text-[10px] text-green-600 font-bold uppercase">Melhoria</span>
+                             </>
+                           ) : (
+                             <>
+                               <span className="text-red-600 font-black text-lg">{feedback.delta}%</span>
+                               <span className="text-[10px] text-red-600 font-bold uppercase">Abaixo</span>
+                             </>
+                           )}
+                        </div>
+                     </div>
+                     <p className="mt-4 font-bold text-slate-500">Média histórica: {feedback.historical}%</p>
+                 </div>
+
+                 {/* Actions Map */}
+                 <div className="space-y-4">
+                    <div className="flex items-center gap-3 p-5 rounded-3xl bg-blue-50 border border-blue-100">
+                       <div className="w-10 h-10 bg-blue-600 rounded-2xl flex items-center justify-center text-white shrink-0 shadow-lg shadow-blue-200">
+                          <Zap size={20} className="fill-white" />
+                       </div>
+                       <div>
+                          <h4 className="font-black text-blue-900 text-sm">Cicatrizando Erros...</h4>
+                          <p className="text-[10px] text-blue-600 font-bold uppercase">{questions - hits} novos cards no radar FSRS</p>
+                       </div>
+                    </div>
+
+                    {feedback.recoveryTriggered && (
+                       <div className="flex items-center gap-3 p-5 rounded-3xl bg-amber-50 border border-amber-100 animate-pulse">
+                          <div className="w-10 h-10 bg-amber-600 rounded-2xl flex items-center justify-center text-white shrink-0 shadow-lg shadow-amber-200">
+                             <RotateCcw size={20} />
+                          </div>
+                          <div>
+                             <h4 className="font-black text-amber-900 text-sm">Fila de Recuperação Ativada</h4>
+                             <p className="text-[10px] text-amber-600 font-bold uppercase">Tópico adicionado ao backlog intensivo</p>
+                          </div>
+                       </div>
+                    )}
+                 </div>
+              </div>
+
+              {/* Action Button */}
+              <Button 
+                onClick={() => router.push('/dashboard')}
+                className="w-full py-8 h-12 rounded-3xl font-black text-lg bg-slate-900 hover:bg-black shadow-xl shadow-slate-200"
+              >
+                Continuar Operação
+                <ChevronRight size={20} className="ml-1" />
+              </Button>
+           </div>
+        </div>
+      )}
     </div>
   );
 }
