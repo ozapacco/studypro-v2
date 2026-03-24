@@ -154,6 +154,10 @@ async function getDashboardData() {
     recoveryQueue: recoveryQueue || []
   };
  } catch (err: any) {
+    // CRÍTICO: Não capturar NEXT_REDIRECT pois ele é usado pelo Next.js para redirecionar de fato.
+    if (err?.message === 'NEXT_REDIRECT' || err?.digest?.includes('NEXT_REDIRECT')) {
+       throw err;
+    }
     console.error('DASHBOARD_FATAL:', err);
     return { error: err.message || 'Erro ao carregar dados' };
  }
