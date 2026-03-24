@@ -37,18 +37,23 @@ export function scheduleReview(
     difficulty: number;
     lapses: number;
     learning_step?: number;
+    personal_difficulty?: number;
   },
   rating: ReviewRating,
   params: FSRSParams = DEFAULT_FSRS_PARAMS
 ): FSRSResult {
   const now = new Date();
-  let { state, stability, difficulty, lapses, learning_step = 0 } = card;
+  let { state, stability, difficulty, lapses, learning_step = 0, personal_difficulty = 50 } = card;
 
-  // Lógica de Retenção
+  // Fator de Dificuldade Pessoal (0.5 a 1.5)
+  // Assuntos difíceis (>50) fazem o pdFactor ser > 1
+  const pdFactor = 1 + (personal_difficulty - 50) / 100;
+
+  // Lógica de Retenção Analítica
   if (rating === 1) { // ERREI
     lapses++;
-    stability = params.w[0] * Math.pow(stability, params.w[1]);
-    difficulty = Math.min(5, difficulty + params.w[2]);
+    stability = params.w[0] * Math.pow(stability, params.w[1]) * (1 / pdFactor);
+    difficulty = Math.min(5, difficulty + (params.w[2] * pdFactor));
     state = 'relearning';
     learning_step = 0;
   } else { // ACERTEI
@@ -56,16 +61,21 @@ export function scheduleReview(
       learning_step++;
       if (learning_step >= STEPS.length) {
         state = 'review';
-        stability = params.w[3]; // Estabilidade inicial após aprender
+        // Estabilidade inicial: menor se pdFactor for alto (assunto difícil)
+        stability = params.w[3] * (rating === 4 ? 1.5 : 1) / pdFactor; 
       } else {
         state = 'learning';
         stability = 0.1; // Curta duração
       }
     } else {
       // Já era um card de revisão (Review State)
-      const bonus = rating === 5 ? params.w[4] : 1.0; // Bônus para "Fácil"
-      stability = stability * (1 + (params.w[5] * bonus * (5 - difficulty)));
-      difficulty = Math.max(1, Math.min(5, difficulty + (params.w[6] * (3 - rating))));
+      const bonus = rating >= 3 ? params.w[4] : 1.0; // Bônus
+      
+      // Estabilidade cresce mais devagar para assuntos difíceis
+      stability = stability * (1 + (params.w[5] * bonus * (5 - difficulty) / pdFactor));
+      
+      // Dificuldade cai mais devagar se o assunto é difícil
+      difficulty = Math.max(1, Math.min(5, difficulty + (params.w[6] * (3 - rating) * pdFactor)));
     }
   }
 

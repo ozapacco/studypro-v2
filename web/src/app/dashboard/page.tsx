@@ -17,7 +17,9 @@ import {
   LayoutDashboard,
   Clock,
   ChevronRight,
-  AlertTriangle
+  AlertTriangle,
+  Map,
+  ShieldAlert
 } from 'lucide-react';
 import { cn, formatPercentage } from '@/lib/utils';
 import Link from 'next/link';
@@ -44,10 +46,6 @@ async function getDashboardData() {
     }
   };
 
-  // Chamar API interna (simulado via call direta se possà­vel, mas aqui usamos a là³gica)
-  // Como estamos em Server Component, podemos ler do Supabase diretamente.
-  
-  // 1. Sessions de hoje
   const today = new Date().toISOString().split('T')[0];
   const { data: sessions } = await supabase
     .from('question_sessions')
@@ -55,24 +53,20 @@ async function getDashboardData() {
     .eq('user_id', userId)
     .gte('session_date', today);
 
-  // 2. Cards Pendentes
   const { count: dueCards } = await supabase
     .from('cards')
     .select('*', { count: 'exact', head: true })
     .eq('user_id', userId)
     .lte('due_date', new Date().toISOString());
 
-  // 3. Matà©ria fraca e Tà³pico crà­tico
   const { data: weakTopics } = await supabase
     .from('topic_performance')
     .select('subject, canonical_topic, accuracy, attempts')
     .eq('user_id', userId)
-    .gt('attempts', 5) // Mà­nimo de amostragem
+    .gt('attempts', 5) 
     .order('accuracy', { ascending: true })
     .limit(3);
 
-  
-  // 4. Fila de Recuperaà§ão (F2.3)
   const { data: recoveryQueue } = await supabase
     .from('recovery_queue')
     .select('*')
@@ -80,7 +74,6 @@ async function getDashboardData() {
     .in('status', ['open', 'in_progress'])
     .order('created_at', { ascending: false });
 
-  // 4. Calcular Streak Real
   const { data: allSessions } = await supabase
     .from('question_sessions')
     .select('session_date')
@@ -92,7 +85,6 @@ async function getDashboardData() {
     const dates = Array.from(new Set(allSessions.map((s: any) => (s.session_date as string).split('T')[0])));
     const todayStr = new Date().toISOString().split('T')[0];
     
-    // Se a àºltima sessão não foi hoje nem ontem, streak à© 0
     const lastSessionDate = dates[0] as string;
     const diff = (new Date(todayStr).getTime() - new Date(lastSessionDate).getTime()) / (1000 * 3600 * 24);
     
@@ -110,6 +102,36 @@ async function getDashboardData() {
       }
     }
   }
+
+  // Mapa de Prioridades Estratégicas
+  const { data: activeExam } = await supabase
+    .from('exams')
+    .select('id')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  const { data: subjects } = await supabase
+    .from('subjects')
+    .select('name, weight, importance, current_accuracy, target_accuracy')
+    .eq('exam_id', activeExam?.id || '')
+    .order('weight', { ascending: false });
+
+  const priorityMap = (subjects || [])
+    .map((s: any) => {
+      const threshold = s.target_accuracy || 70;
+      const gap = Math.max(0, (threshold - s.current_accuracy) / threshold);
+      const priority = (Number(s.weight || 50) + Number(s.importance || 50)) * (1 + gap);
+      return { 
+        name: s.name, 
+        priority: Math.round(priority),
+        gap: Math.round(gap * 100),
+        isCritical: gap > 0.3
+      };
+    })
+    .sort((a: any, b: any) => b.priority - a.priority)
+    .slice(0, 4);
 
   const totalQuestions = sessions?.reduce((acc: number, s: any) => acc + s.total_questions, 0) || 0;
   const totalHits = sessions?.reduce((acc: number, s: any) => acc + s.correct_answers, 0) || 0;
@@ -140,18 +162,19 @@ async function getDashboardData() {
       title: dailyMission.missions[0]?.subject || 'Inicie seu Ciclo',
       description: dailyMission.missions[0]?.topic 
         ? `Prática de **${dailyMission.missions[0].topic}**.`
-        : 'Sua meta à© manter a CONSTÂNCIA hoje.',
+        : 'Sua meta é manter a CONSTÂNCIA hoje.',
       reason: dailyMission.explanation,
       progress: dailyMission.missions[0]?.targetCount 
         ? Math.min(100, Math.round((totalQuestions / dailyMission.missions[0].targetCount) * 100))
         : 0,
-      type: dailyMission.missions[0]?.type === 'review' ? 'Manutenà§ão' : 'Reforà§o',
+      type: dailyMission.missions[0]?.type === 'review' ? 'Manutenção' : 'Reforço',
       explanation: dailyMission.explanation
     },
-    recoveryQueue: recoveryQueue || []
+    recoveryQueue: recoveryQueue || [],
+    priorityMap,
+    allSessions: allSessions || []
   };
  } catch (err: any) {
-    // CRàTICO: Não capturar NEXT_REDIRECT pois ele à© usado pelo Next.js para redirecionar de fato.
     if (err?.message === 'NEXT_REDIRECT' || err?.digest?.includes('NEXT_REDIRECT')) {
        throw err;
     }
@@ -177,7 +200,7 @@ export default async function DashboardPage() {
 
            <div className="bg-slate-50 rounded-2xl p-6 text-left mb-8 space-y-3">
               <div className="flex justify-between items-center text-xs font-bold uppercase tracking-widest text-slate-400">
-                <span>Diagnà³stico Operacional</span>
+                <span>Diagnóstico Operacional</span>
               </div>
               <div className="h-px bg-slate-100" />
               <div className="flex justify-between text-sm">
@@ -199,14 +222,14 @@ export default async function DashboardPage() {
              <Link href="/" className="block w-full p-4 bg-blue-600 text-white rounded-2xl font-black shadow-lg shadow-blue-200 hover:bg-blue-700 transition-all">
                 Tentar Novamente
              </Link>
-             <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tight">Dica: Um "Redeploy" na Vercel à© necessário apà³s salvar chaves.</p>
+             <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tight">Dica: Um "Redeploy" na Vercel é necessário após salvar chaves.</p>
            </div>
         </div>
       </div>
     );
   }
 
-  const { user, stats, mission, recoveryQueue } = data;
+  const { user, stats, mission, recoveryQueue, priorityMap } = data;
 
   return (
     <div className="flex flex-col min-h-screen pb-20 bg-slate-50">
@@ -249,14 +272,14 @@ export default async function DashboardPage() {
                  <Target size={20} />
               </div>
               <div>
-                 <span className="text-[10px] font-black text-slate-400 uppercase tracking-tight">Acerto Mà©dio</span>
+                 <span className="text-[10px] font-black text-slate-400 uppercase tracking-tight">Acerto Médio</span>
                  <p className="font-black text-green-600 leading-none">{stats.accuracy}%</p>
               </div>
            </div>
         </div>
       </header>
 
-      {/* Post-Impact HUD (F3.1) */}
+      {/* Post-Impact HUD */}
       {data.isPostImpact && (
         <section className="px-6 -mt-2 mb-4 animate-pulse">
            <div className="bg-red-950/90 border-2 border-red-500 rounded-3xl p-5 flex items-center justify-between shadow-lg shadow-red-200">
@@ -265,8 +288,8 @@ export default async function DashboardPage() {
                     <AlertTriangle size={24} />
                  </div>
                  <div>
-                    <h3 className="text-sm font-black text-red-100 uppercase tracking-tighter">Modo Pà³s-Impacto Ativo</h3>
-                    <p className="text-red-400 text-[10px] font-bold leading-none">SEU PLANO FOI ALTERADO PARA RECUPERAà‡àƒO</p>
+                    <h3 className="text-sm font-black text-red-100 uppercase tracking-tighter">Modo Pós-Impacto Ativo</h3>
+                    <p className="text-red-400 text-[10px] font-bold leading-none">SEU PLANO FOI ALTERADO PARA RECUPERAÇÃO</p>
                  </div>
               </div>
            </div>
@@ -276,141 +299,7 @@ export default async function DashboardPage() {
       {/* Main Content */}
       <main className="px-6 -mt-4 relative z-10 space-y-6">
         
-        {/* New User Welcome CTA (F2.5.3) */}
-        {data.isNewUser && (
-           <section className="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-[40px] p-8 text-white shadow-xl shadow-blue-200 text-center space-y-6">
-              <div className="w-20 h-20 bg-white/20 rounded-3xl flex items-center justify-center mx-auto mb-2 animate-bounce">
-                 <Zap size={40} className="text-white" />
-              </div>
-              <div>
-                 <h2 className="text-3xl font-black">Pronto para a Glória?</h2>
-                 <p className="text-blue-100 text-sm font-medium mt-2">Ainda não detectamos seus pontos cegos. Comece agora sua primeira bateria!</p>
-              </div>
-              <Link href="/dashboard/registrar" className="block">
-                 <Button className="w-full bg-white text-blue-700 h-16 rounded-2xl font-black text-lg shadow-lg">
-                   Primeira Bateria
-                 </Button>
-              </Link>
-           </section>
-        )}
-
-        {/* Cicatrização Alert (If any) */}
-        {!data.isNewUser && stats.dueCards > 0 && (
-          <Link href="/dashboard/revisar" className="block animate-in fade-in slide-in-from-top-4 duration-500">
-            <div className="bg-amber-600 rounded-3xl p-6 text-white flex items-center justify-between shadow-xl shadow-amber-200 overflow-hidden relative group">
-              <div className="absolute top-0 right-0 p-2 opacity-10 group-hover:scale-150 transition-transform">
-                <RotateCcw size={80} />
-              </div>
-              <div className="flex items-center gap-5">
-                 <div className="w-14 h-14 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center">
-                    <RotateCcw size={28} className="animate-spin-slow" />
-                 </div>
-                 <div>
-                    <h2 className="text-xl font-black">Cicatrizar Erros</h2>
-                    <p className="text-amber-100 text-xs font-semibold">{stats.dueCards} cards pendentes no radar.</p>
-                 </div>
-              </div>
-              <ChevronRight size={24} className="text-amber-200" />
-            </div>
-          </Link>
-        )}
-
-        {/* Health Panel (F2.5.1 / F2.5.4) */}
-        {!data.isNewUser && (
-           <section className="bg-white rounded-[40px] p-6 shadow-sm border border-slate-100">
-              <div className="flex items-center justify-between mb-6">
-                 <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest">Health Panel</h3>
-                 <div className="px-2 py-1 bg-green-50 text-green-600 text-[10px] font-black rounded-lg">SISTEMA OK</div>
-              </div>
-              
-              <div className="space-y-4">
-                 {/* Only show if we have trusted samples (N>5) */}
-                 {stats.hasTrustedData ? (
-                   <>
-                    <div className="flex items-center justify-between p-2">
-                       <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-400">
-                             <Target size={18} />
-                          </div>
-                          <div>
-                             <p className="text-[10px] font-black text-slate-400 uppercase leading-none">Ponto Cego</p>
-                             <h4 className="font-bold text-slate-900 text-sm truncate max-w-[150px]">{stats.criticalTopic}</h4>
-                          </div>
-                       </div>
-                       <div className="text-right">
-                          <p className="text-[10px] font-black text-slate-400 uppercase leading-none">Crà­tico</p>
-                          <span className="text-xs font-black text-red-500">Aà‡àƒO IMEDIATA</span>
-                       </div>
-                    </div>
-
-                    <div className="flex items-center justify-between p-2">
-                       <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-400">
-                             <Clock size={18} />
-                          </div>
-                          <div>
-                             <p className="text-[10px] font-black text-slate-400 uppercase leading-none">Matà©ria Fraca</p>
-                             <h4 className="font-bold text-slate-900 text-sm">{stats.weakSubject}</h4>
-                          </div>
-                       </div>
-                       <div className="text-right">
-                          <p className="text-[10px] font-black text-slate-400 uppercase leading-none">Cards</p>
-                          <span className="text-xs font-black text-blue-600">{stats.dueCards} Rev.</span>
-                       </div>
-                    </div>
-                   </>
-                 ) : (
-                    <div className="py-4 text-center">
-                       <p className="text-xs text-slate-400 font-semibold px-4 italic leading-tight">
-                         Amostragem insuficiente para diagnà³stico de saàºde. Seus gatilhos de precisão aparecerão apà³s algumas sessàµes.
-                       </p>
-                    </div>
-                 )}
-              </div>
-           </section>
-        )}
-
-        {/* Fila de Recuperação (F2.3) */}
-        {recoveryQueue && recoveryQueue.length > 0 && (
-          <section className="space-y-4">
-             <div className="flex justify-between items-center px-2">
-                <h3 className="font-black text-slate-900 text-sm uppercase tracking-widest flex items-center gap-2">
-                   <RotateCcw size={16} className="text-amber-600" />
-                   Fila de Recuperação
-                </h3>
-                <span className="text-[10px] font-black bg-amber-100 text-amber-700 px-2 py-1 rounded-full uppercase">
-                   {recoveryQueue.length} {recoveryQueue.length === 1 ? 'Tópico' : 'Tópicos'}
-                </span>
-             </div>
-             
-             <div className="space-y-3">
-                {recoveryQueue.map((item: any) => (
-                  <div key={item.id} className="bg-white rounded-3xl p-5 border border-slate-100 shadow-sm relative overflow-hidden group">
-                     <div className="absolute left-0 top-0 bottom-0 w-1 bg-amber-500" />
-                     <div className="flex justify-between items-start mb-2">
-                        <div>
-                           <span className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">{item.subject}</span>
-                           <h4 className="font-bold text-slate-900 text-sm truncate max-w-[200px]">{item.canonical_topic}</h4>
-                        </div>
-                        <div className="p-2 bg-amber-50 rounded-xl group-hover:scale-110 transition-transform">
-                           <Zap size={14} className="text-amber-500" />
-                        </div>
-                     </div>
-                     <p className="text-[10px] text-slate-500 font-medium mb-4">
-                        {item.reason === 'never_learned' ? 'ðŸš¨ Base fraca detectada' : 'ðŸ©¹ Acurácia crà­tica'}
-                     </p>
-                     <Link href={`/dashboard/recuperacao/${item.id}`} className="block">
-                        <Button className="w-full h-10 text-[10px] font-black uppercase text-amber-700 bg-amber-50 hover:bg-amber-100 border-none shadow-none rounded-xl">
-                           Iniciar Plano de Ação
-                        </Button>
-                     </Link>
-                  </div>
-                ))}
-             </div>
-          </section>
-        )}
-
-        {/* Mission Card (F1.6.1) */}
+        {/* Mission Card */}
         <section className="bg-blue-600 rounded-[40px] p-8 text-white shadow-xl shadow-blue-200 relative overflow-hidden group">
           <div className="absolute -right-4 -top-4 w-32 h-32 bg-white/10 rounded-full blur-3xl" />
           
@@ -441,7 +330,7 @@ export default async function DashboardPage() {
                 />
               </div>
               <p className="text-[10px] text-blue-200 italic font-medium pt-2">
-                 â€œ{mission.explanation}â€
+                 “{mission.explanation}” 
               </p>
             </div>
 
@@ -455,34 +344,134 @@ export default async function DashboardPage() {
           </div>
         </section>
 
-        {/* Activity Feed */}
-        <section className="space-y-4">
-           <div className="flex justify-between items-center px-2">
-              <h3 className="font-black text-slate-900 text-sm uppercase tracking-widest">Atividade Recente</h3>
-              <Link href="/dashboard/stats" className="text-xs font-bold text-blue-600 py-1 px-3 bg-blue-50 rounded-full flex items-center gap-1">
-                Ver Tudo <ChevronRight size={12} />
-              </Link>
-           </div>
-           
-           <div className="bg-white rounded-3xl p-5 border border-slate-100 shadow-sm flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                 <div className="w-12 h-12 bg-slate-100 rounded-2xl flex items-center justify-center text-slate-400">
-                    <BarChart3 size={24} />
-                 </div>
-                 <div>
-                    <h4 className="font-bold text-slate-900 text-sm">Resumo do Dia</h4>
-                    <p className="text-xs text-slate-500 font-medium">{stats.totalQuestions} questões hoje.</p>
-                 </div>
+        {/* Priority Map Widget (New Unfair Advantage UI) */}
+        {!data.isNewUser && priorityMap.length > 0 && (
+          <section className="bg-white rounded-[40px] p-6 shadow-sm border border-slate-100">
+             <div className="flex items-center justify-between mb-6">
+                <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest flex items-center gap-2">
+                   <Map size={16} className="text-blue-600" />
+                   Mapa de Prioridades
+                </h3>
+                <Link href="/dashboard/plano" className="text-[10px] font-black text-blue-600 uppercase tracking-widest">Ajustar Pesos</Link>
+             </div>
+             
+             <div className="space-y-4">
+                {priorityMap.map((item: any, idx: number) => (
+                  <div key={idx} className="flex items-center justify-between group">
+                     <div className="flex items-center gap-3">
+                        <div className={cn(
+                          "w-8 h-8 rounded-xl flex items-center justify-center font-black text-xs",
+                          item.isCritical ? "bg-red-50 text-red-600" : "bg-slate-50 text-slate-400"
+                        )}>
+                           {idx + 1}
+                        </div>
+                        <div>
+                           <h4 className="font-bold text-slate-900 text-sm">{item.name}</h4>
+                           <div className="flex items-center gap-2">
+                              <span className="text-[9px] font-black text-slate-400 uppercase">Score Prioridade: {item.priority}</span>
+                              {item.isCritical && <span className="text-[8px] font-black text-red-500 bg-red-50 px-1 rounded">GAP CRÍTICO</span>}
+                           </div>
+                        </div>
+                     </div>
+                     <div className="h-8 w-1 bg-slate-100 rounded-full overflow-hidden">
+                        <div 
+                          className={cn("w-full transition-all", item.isCritical ? "bg-red-500" : "bg-blue-500")} 
+                          style={{ height: `${Math.min(100, (item.priority / 300) * 100)}%` }} 
+                        />
+                     </div>
+                  </div>
+                ))}
+             </div>
+          </section>
+        )}
+
+        {/* Fila de Recuperação */}
+        {recoveryQueue && recoveryQueue.length > 0 && (
+          <section className="space-y-4">
+             <div className="flex justify-between items-center px-2">
+                <h3 className="font-black text-slate-900 text-sm uppercase tracking-widest flex items-center gap-2">
+                   <RotateCcw size={16} className="text-amber-600" />
+                   Fila de Recuperação
+                </h3>
+             </div>
+             
+             <div className="space-y-3">
+                {recoveryQueue.map((item: any) => (
+                  <div key={item.id} className="bg-white rounded-3xl p-5 border border-slate-100 shadow-sm relative overflow-hidden group">
+                     <div className="absolute left-0 top-0 bottom-0 w-1 bg-amber-500" />
+                     <div className="flex justify-between items-start mb-2">
+                        <div>
+                           <span className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">{item.subject}</span>
+                           <h4 className="font-bold text-slate-900 text-sm truncate max-w-[200px]">{item.canonical_topic}</h4>
+                        </div>
+                        <div className="p-2 bg-amber-50 rounded-xl">
+                           <Zap size={14} className="text-amber-500" />
+                        </div>
+                     </div>
+                     <Link href={`/dashboard/recuperacao/${item.id}`} className="block">
+                        <Button className="w-full h-10 text-[10px] font-black uppercase text-amber-700 bg-amber-50 hover:bg-amber-100 border-none shadow-none rounded-xl">
+                           Iniciar Plano de Ação
+                        </Button>
+                     </Link>
+                  </div>
+                ))}
+             </div>
+          </section>
+        )}
+
+        {/* Health Panel */}
+        {!data.isNewUser && (
+           <section className="bg-white rounded-[40px] p-6 shadow-sm border border-slate-100">
+              <div className="flex items-center justify-between mb-6">
+                 <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest">Health Panel</h3>
+                 <div className="px-2 py-1 bg-green-50 text-green-600 text-[10px] font-black rounded-lg">SISTEMA OK</div>
               </div>
-              <div className="text-right">
-                 <p className="font-black text-slate-900 leading-none">{stats.accuracy}%</p>
-                 <span className="text-[10px] text-green-600 font-bold uppercase">Taxa</span>
+              
+              <div className="space-y-4">
+                 {stats.hasTrustedData ? (
+                   <>
+                    <div className="flex items-center justify-between p-2">
+                       <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-400">
+                             <Target size={18} />
+                          </div>
+                          <div>
+                             <p className="text-[10px] font-black text-slate-400 uppercase leading-none">Ponto Cego</p>
+                             <h4 className="font-bold text-slate-900 text-sm truncate max-w-[150px]">{stats.criticalTopic}</h4>
+                          </div>
+                       </div>
+                       <div className="text-right">
+                          <span className="text-xs font-black text-red-500">AÇÃO IMEDIATA</span>
+                       </div>
+                    </div>
+
+                    <div className="flex items-center justify-between p-2">
+                       <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-400">
+                             <Clock size={18} />
+                          </div>
+                          <div>
+                             <p className="text-[10px] font-black text-slate-400 uppercase leading-none">Matéria Fraca</p>
+                             <h4 className="font-bold text-slate-900 text-sm">{stats.weakSubject}</h4>
+                          </div>
+                       </div>
+                       <div className="text-right">
+                          <span className="text-xs font-black text-blue-600">{stats.dueCards} Rev.</span>
+                       </div>
+                    </div>
+                   </>
+                 ) : (
+                    <div className="py-4 text-center">
+                       <p className="text-xs text-slate-400 font-semibold px-4 italic leading-tight">
+                         Amostragem insuficiente para diagnóstico. Continue treinando.
+                       </p>
+                    </div>
+                 )}
               </div>
-           </div>
-        </section>
+           </section>
+        )}
 
       </main>
     </div>
   );
 }
-

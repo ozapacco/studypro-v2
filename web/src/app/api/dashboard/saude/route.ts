@@ -23,7 +23,7 @@ export async function GET() {
       .order('created_at', { ascending: false }),
     supabase
       .from('topic_performance')
-      .select('subject, canonical_topic, attempts, accuracy, recurrence_score')
+      .select('subject, canonical_topic, attempts, accuracy, recurrence_score, personal_difficulty')
       .eq('user_id', user.id)
       .order('accuracy', { ascending: false })
   ]);
@@ -39,14 +39,14 @@ export async function GET() {
   const { data: subjects } = activeExam
     ? await supabase
         .from('subjects')
-        .select('weight, current_accuracy')
+        .select('name, weight, importance, current_accuracy, target_accuracy')
         .eq('exam_id', activeExam.id)
     : { data: [] as any[] };
 
   let weightedProjection = 0;
   let totalWeight = 0;
   for (const subject of subjects || []) {
-    const w = Number(subject.weight || 0);
+    const w = Number(subject.importance || 50) + Number(subject.weight || 50);
     weightedProjection += Number(subject.current_accuracy || 0) * w;
     totalWeight += w;
   }
@@ -55,13 +55,24 @@ export async function GET() {
   const lastMock = (mocks || []).slice(-1)[0];
   const projectedScore = Math.round(lastMock ? (weightedScore * 0.7 + Number(lastMock.total_score || 0) * 0.3) : weightedScore);
 
+  const prioritySubjects = (subjects || [])
+    .map((s: any) => {
+      const gap = Math.max(0, ((s.target_accuracy || 70) - s.current_accuracy) / (s.target_accuracy || 70));
+      return { ...s, priority: (Number(s.weight || 50) + Number(s.importance || 50)) * (1 + gap) };
+    })
+    .sort((a: any, b: any) => b.priority - a.priority);
+
   return NextResponse.json({
     mocks: mocks || [],
     recoveries: (recoveries || []).map((r: any) => ({ ...r, trigger_count: 1 })),
     projectedScore,
+    prioritySubjects,
     performance: {
       best: (topics || []).slice(0, 3),
-      worst: (topics || []).filter((t: any) => Number(t.attempts || 0) >= 5).slice(-3)
+      worst: (topics || [])
+        .filter((t: any) => Number(t.attempts || 0) >= 3)
+        .sort((a: any, b: any) => (b.personal_difficulty || 50) - (a.personal_difficulty || 50))
+        .slice(0, 3)
     }
   });
 }

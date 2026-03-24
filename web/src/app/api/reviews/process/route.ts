@@ -27,6 +27,15 @@ export async function POST(request: Request) {
       requestRetention: Number((profile as any).fsrs_retention || DEFAULT_FSRS_PARAMS.requestRetention)
   } : DEFAULT_FSRS_PARAMS;
 
+  // 1.5 Buscar a dificuldade pessoal do tópico para ajuste fino analítico
+  const { data: topicPerf } = await supabase
+    .from('topic_performance')
+    .select('personal_difficulty')
+    .eq('user_id', user.id)
+    .eq('subject', card.subject)
+    .eq('canonical_topic', card.canonical_topic)
+    .maybeSingle();
+
   // 2. Executar Engine FSRS v2.2
   const result = scheduleReview(
     {
@@ -34,7 +43,8 @@ export async function POST(request: Request) {
       stability: Number(card.stability) || 0.1,
       difficulty: Number(card.difficulty) || 2.5,
       lapses: card.lapses || 0,
-      learning_step: card.learning_step || 0
+      learning_step: card.learning_step || 0,
+      personal_difficulty: topicPerf?.personal_difficulty || 50
     },
     rating as ReviewRating,
     userParams

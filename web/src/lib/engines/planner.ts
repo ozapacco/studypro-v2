@@ -18,10 +18,25 @@ export function determineStudyPhase(daysUntilExam: number): StudyPhase {
   return 'base';
 }
 
-export function calculatePriority(weight: number, currentAccuracy: number, targetAccuracy: number): number {
+export function calculatePriority(
+  weight: number,
+  importance: number,
+  currentAccuracy: number,
+  targetAccuracy: number,
+  isMockCritical: boolean = false
+): number {
   const threshold = targetAccuracy || 70;
   const gap = Math.max(0, (threshold - currentAccuracy) / threshold);
-  return Number(weight || 0) * (1 + gap);
+  
+  // Fórmula Base: Prioridade = (Peso do Edital * Importância da Banca) * (1 + Gap de Desempenho)
+  // Se for crítico no simulado, ganha multiplicador imediato (regra 11.3 do spec)
+  let priority = (Number(weight || 0) + Number(importance || 50)) * (1 + gap);
+  
+  if (isMockCritical) {
+    priority *= 1.5;
+  }
+
+  return Number(priority.toFixed(2));
 }
 
 export async function getMockImpact(userId: string) {
@@ -145,7 +160,7 @@ export async function generateDailyMissionAsync(userId: string): Promise<DailyMi
   } else {
     const { data: subjects } = await supabase
       .from('subjects')
-      .select('id, name, weight, current_accuracy, target_accuracy')
+      .select('id, name, weight, importance, current_accuracy, target_accuracy')
       .eq('exam_id', activeExam?.id || '')
       .order('weight', { ascending: false });
 
@@ -164,16 +179,15 @@ export async function generateDailyMissionAsync(userId: string): Promise<DailyMi
     } else {
       const subjectsWithPriority = subjects
         .map((subject: any) => {
-          let priority = calculatePriority(
-            Number(subject.weight || 0),
+          const isMockCritical = mockImpact?.isFailed && (mockImpact.criticalTopics || []).includes(subject.name);
+          
+          const priority = calculatePriority(
+            Number(subject.weight || 50),
+            Number(subject.importance || 50),
             Number(subject.current_accuracy || 0),
-            Number(subject.target_accuracy || targetAccuracy)
+            Number(subject.target_accuracy || targetAccuracy),
+            isMockCritical
           );
-
-          // Pós-impacto: reforço temporário nas matérias críticas do último simulado.
-          if (mockImpact?.isFailed && (mockImpact.criticalTopics || []).includes(subject.name)) {
-            priority *= 1.5;
-          }
 
           return { ...subject, priority };
         })
@@ -183,10 +197,11 @@ export async function generateDailyMissionAsync(userId: string): Promise<DailyMi
 
       const { data: topicPerformance } = await supabase
         .from('topic_performance')
-        .select('canonical_topic, attempts, accuracy, recurrence_score')
+        .select('canonical_topic, attempts, accuracy, recurrence_score, personal_difficulty')
         .eq('user_id', userId)
         .eq('subject', topSubject.name)
         .order('recurrence_score', { ascending: false })
+        .order('personal_difficulty', { ascending: false })
         .order('accuracy', { ascending: true })
         .limit(15);
 

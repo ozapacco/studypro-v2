@@ -94,7 +94,8 @@ async function upsertTopicPerformance(
   subject: string,
   canonicalTopic: string,
   attemptsInc: number,
-  errorsInc: number
+  errorsInc: number,
+  difficulty: number
 ) {
   const { data: existing } = await supabase
     .from('topic_performance')
@@ -112,6 +113,7 @@ async function upsertTopicPerformance(
         attempts: Number(existing.attempts || 0) + attemptsInc,
         errors: Number(existing.errors || 0) + errorsInc,
         recurrence_score: Number(existing.recurrence_score || 0) + recurrenceBoost,
+        personal_difficulty: Math.round(((existing.personal_difficulty || 50) + (difficulty * 20)) / 2),
         last_seen_at: new Date().toISOString()
       })
       .eq('id', existing.id);
@@ -130,6 +132,7 @@ async function upsertTopicPerformance(
       attempts: attemptsInc,
       errors: errorsInc,
       recurrence_score: errorsInc > 0 ? 1 : 0,
+      personal_difficulty: Math.min(100, Math.max(0, difficulty * 20)),
       last_seen_at: new Date().toISOString()
     })
     .select('id, recurrence_score')
@@ -272,7 +275,8 @@ export async function POST(request: Request) {
       subject,
       topic,
       attemptsInc,
-      errorsInc
+      errorsInc,
+      perceivedDifficulty
     );
 
     if (totalErrors > 0) {

@@ -40,7 +40,7 @@ export async function GET(request: Request) {
   if (subject) {
     let dbQuery = supabase
       .from('topic_dictionary')
-      .select('id, subject, canonical, aliases, usage_count, verified')
+      .select('id, subject, canonical, aliases, importance, general_difficulty, usage_count, verified')
       .eq('subject', subject)
       .order('usage_count', { ascending: false });
 
@@ -61,6 +61,8 @@ export async function GET(request: Request) {
         subject: t.subject,
         canonical: t.canonical,
         aliases: t.aliases || [],
+        importance: t.importance || 50,
+        general_difficulty: t.general_difficulty || 50,
         usageCount: t.usage_count || 0,
         verified: Boolean(t.verified)
       }))
@@ -72,7 +74,7 @@ export async function GET(request: Request) {
 
   const { data: subjects, error } = await supabase
     .from('subjects')
-    .select('id, name, weight, target_accuracy, current_accuracy, current_priority')
+    .select('id, name, weight, importance, target_accuracy, current_accuracy, current_priority')
     .eq('exam_id', examId)
     .order('weight', { ascending: false });
 
@@ -110,10 +112,16 @@ export async function POST(request: Request) {
     const { data, error } = await supabase
       .from('topic_dictionary')
       .upsert(
-        { subject, canonical, aliases },
+        { 
+          subject, 
+          canonical, 
+          aliases,
+          importance: Math.max(0, Math.min(100, Number(body.importance || 50))),
+          general_difficulty: Math.max(0, Math.min(100, Number(body.difficulty || 50)))
+        },
         { onConflict: 'subject,canonical' }
       )
-      .select('id, subject, canonical, aliases')
+      .select('id, subject, canonical, aliases, importance, general_difficulty')
       .single();
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
@@ -151,11 +159,12 @@ export async function POST(request: Request) {
         exam_id: examId,
         name,
         weight: Math.max(0, Math.min(100, weight)),
+        importance: Math.max(0, Math.min(100, Number(body.importance ?? 50))),
         target_accuracy: Math.max(40, Math.min(95, targetAccuracy))
       },
       { onConflict: 'exam_id,name' }
     )
-    .select('id, exam_id, name, weight, target_accuracy, current_accuracy')
+    .select('id, exam_id, name, weight, importance, target_accuracy, current_accuracy')
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
@@ -177,6 +186,7 @@ export async function PUT(request: Request) {
   const patch: any = {};
   if (body.name != null) patch.name = String(body.name).trim();
   if (body.weight != null) patch.weight = Math.max(0, Math.min(100, Number(body.weight)));
+  if (body.importance != null) patch.importance = Math.max(0, Math.min(100, Number(body.importance)));
   if (body.target_accuracy != null) patch.target_accuracy = Math.max(40, Math.min(95, Number(body.target_accuracy)));
 
   const { data: found } = await supabase

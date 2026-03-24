@@ -171,3 +171,24 @@ export async function POST(request: Request) {
     gapToCutoff: Number((totalScore - cutoff).toFixed(2))
   });
 }
+
+export async function GET() {
+  const supabase = createServerSupabaseClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const { data: mocks, error } = await supabase
+    .from('mock_exams')
+    .select('*')
+    .eq('user_id', user.id)
+    .order('exam_date', { ascending: false });
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  return NextResponse.json(mocks || []);
+}

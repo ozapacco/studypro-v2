@@ -87,7 +87,10 @@ export default function SaúdePage() {
         <section className="space-y-4">
            <div className="flex justify-between items-center px-1">
               <h2 className="font-black text-slate-900 text-sm tracking-widest uppercase">Evolução em Simulado</h2>
-              <Link href="/dashboard/simulados/registrar" className="text-blue-600 font-bold text-xs">Registrar</Link>
+              <div className="flex gap-3">
+                 <Link href="/dashboard/simulados" className="text-slate-400 font-black text-[10px] uppercase tracking-widest hover:text-blue-600 transition-colors">Ver Histórico</Link>
+                 <Link href="/dashboard/simulados/registrar" className="text-blue-600 font-black text-[10px] uppercase tracking-widest">Registrar</Link>
+              </div>
            </div>
            
            <div className="bg-white p-6 rounded-[32px] shadow-sm border border-slate-100 min-h-[160px] flex items-end justify-between gap-2 overflow-hidden relative">
@@ -153,15 +156,52 @@ export default function SaúdePage() {
            </div>
         </section>
 
-        {/* Radar Polonês - Best e Worst */}
+        {/* Estratégia de Priorização - Matriz de Risco (Added) */}
+        <section className="space-y-4">
+           <div className="flex justify-between items-center px-1">
+              <h2 className="font-black text-slate-900 text-sm tracking-widest uppercase items-center flex gap-2">
+                 Matriz de Riscos
+                 <Target size={14} className="text-blue-600" />
+              </h2>
+           </div>
+           
+           <div className="bg-white p-6 rounded-[32px] shadow-sm border border-slate-100 space-y-4">
+              {data?.prioritySubjects?.map((s: any, idx: number) => (
+                <div key={idx} className="space-y-2 group">
+                   <div className="flex justify-between items-end">
+                      <div>
+                         <h4 className="font-black text-slate-900 text-sm truncate max-w-[200px]">{s.name}</h4>
+                         <p className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">Prioridade: {Math.round(s.priority)}</p>
+                      </div>
+                      <div className="text-right">
+                         <span className={cn(
+                           "text-[9px] font-black px-2 py-0.5 rounded-full uppercase",
+                           s.priority > 150 ? "bg-red-50 text-red-600" : "bg-blue-50 text-blue-600"
+                         )}>
+                            {s.priority > 150 ? 'Crítico' : 'Estável'}
+                         </span>
+                      </div>
+                   </div>
+                   <div className="h-2 w-full bg-slate-50 rounded-full overflow-hidden border border-slate-100/50">
+                      <div 
+                        className={cn("h-full transition-all duration-1000", s.priority > 150 ? "bg-red-500" : "bg-blue-500")} 
+                        style={{ width: `${Math.min(100, (s.priority / 300) * 100)}%` }} 
+                      />
+                   </div>
+                </div>
+              ))}
+           </div>
+        </section>
+
+        {/* Radar Polonês - Best e Worst difficulty */}
         <div className="grid grid-cols-2 gap-4">
            <div className="bg-white p-5 rounded-[32px] shadow-sm border border-slate-100">
               <div className="flex items-center gap-2 mb-4">
-                 <TrendingUp size={16} className="text-green-500" />
-                 <span className="text-[10px] font-black uppercase tracking-tight text-slate-400">Melhores</span>
+                 <Medal size={16} className="text-blue-500" />
+                 <span className="text-[10px] font-black uppercase tracking-tight text-slate-400">Domínio</span>
               </div>
               <div className="space-y-3">
-                 {data?.performance?.best?.slice(0, 2).map((b: any, i:number) => (
+                 {data?.performance?.best?.slice(0, 3).map((b: any, i:number) => (
                    <div key={i}>
                       <p className="text-[8px] font-black text-slate-400 truncate uppercase tracking-tighter">{b.subject}</p>
                       <p className="text-xs font-black text-slate-900 truncate leading-none mt-0.5">{b.canonical_topic}</p>
@@ -172,14 +212,17 @@ export default function SaúdePage() {
            </div>
            <div className="bg-white p-5 rounded-[32px] shadow-sm border border-slate-100">
               <div className="flex items-center gap-2 mb-4">
-                 <TrendingDown size={16} className="text-red-500" />
-                 <span className="text-[10px] font-black uppercase tracking-tight text-slate-400">Piores</span>
+                 <ShieldAlert size={16} className="text-red-500" />
+                 <span className="text-[10px] font-black uppercase tracking-tight text-slate-400">Gargalos</span>
               </div>
               <div className="space-y-3">
-                 {data?.performance?.worst?.slice(0, 2).map((w: any, i:number) => (
+                 {data?.performance?.worst?.slice(0, 3).map((w: any, i:number) => (
                    <div key={i}>
                       <p className="text-[8px] font-black text-slate-400 truncate uppercase tracking-tighter">{w.subject}</p>
                       <p className="text-xs font-black text-slate-900 truncate leading-none mt-0.5">{w.canonical_topic}</p>
+                      <div className="w-full h-1 bg-slate-50 rounded-full mt-1">
+                         <div className="h-full bg-red-400 rounded-full" style={{ width: `${w.personal_difficulty || 50}%` }} />
+                      </div>
                    </div>
                  ))}
                  {!data?.performance?.worst?.length && <p className="text-[8px] font-bold text-slate-300">Sem dados.</p>}

@@ -15,7 +15,8 @@ import {
   Search,
   Zap,
   RotateCcw,
-  Loader2
+  Loader2,
+  BrainCircuit
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
@@ -276,9 +277,38 @@ export default function RegistrarSessionPage() {
           </div>
         </section>
 
+        {/* Dificuldade Percebida (Adicionado) */}
+        <section className="space-y-4">
+          <div className="flex justify-between items-center ml-1">
+             <label className="text-xs font-black uppercase text-slate-400 tracking-widest">Esforço Mental (Dificuldade)</label>
+             <span className="text-[10px] font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">{difficulty}/5</span>
+          </div>
+          <div className="bg-white p-5 rounded-3xl shadow-sm border border-slate-100 flex items-center gap-4">
+             <div className="flex-1 space-y-1">
+                <input 
+                  type="range" 
+                  min="1" 
+                  max="5" 
+                  step="1"
+                  value={difficulty}
+                  onChange={(e) => setDifficulty(Number(e.target.value))}
+                  className="w-full h-2 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-blue-600"
+                />
+                <div className="flex justify-between text-[8px] font-black text-slate-300 uppercase tracking-tighter">
+                   <span>Fácil</span>
+                   <span>Moderado</span>
+                   <span>Extremo</span>
+                </div>
+             </div>
+             <div className="w-10 h-10 bg-slate-50 border border-slate-100 rounded-xl flex items-center justify-center">
+                <BrainCircuit size={18} className="text-blue-500" />
+             </div>
+          </div>
+        </section>
+
         {/* Tipo de Erro */}
         <section className="space-y-4">
-          <label className="text-xs font-black uppercase text-slate-400 tracking-widest ml-1">Qual foi a maior dificuldade?</label>
+          <label className="text-xs font-black uppercase text-slate-400 tracking-widest ml-1">Qual foi a maior barreira?</label>
           <div className="space-y-3">
             {ERROR_TYPES.map((et) => (
               <button
