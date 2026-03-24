@@ -1,6 +1,8 @@
 import { signIn } from '@/lib/supabase/auth'
 
-export default function LoginPage() {
+export default function LoginPage({ searchParams }: { searchParams: { error?: string } }) {
+  const hasError = searchParams?.error === 'true';
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4">
       <div className="max-w-md w-full space-y-8 p-8 bg-white rounded-xl shadow-lg">
@@ -9,7 +11,16 @@ export default function LoginPage() {
           <p className="mt-2 text-gray-600">Orquestrador de Estudos</p>
         </div>
 
-        <form action={signIn} className="mt-8 space-y-6">
+        {hasError && (
+          <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg text-sm font-medium text-center shadow-sm">
+            Erro de autenticação! Verifique suas credenciais.<br/>
+            <span className="text-xs font-normal mt-1 block">
+              Se estiver na Vercel, confirme que NEXT_PUBLIC_SUPABASE_URL e NEXT_PUBLIC_SUPABASE_ANON_KEY estão configurados no seu dashboard!
+            </span>
+          </div>
+        )}
+
+        <form action={signIn} className="mt-4 space-y-6">
           <div>
             <label htmlFor="email" className="block text-sm font-medium text-gray-700">
               Email
