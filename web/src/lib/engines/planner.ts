@@ -120,7 +120,7 @@ export async function generateDailyMissionAsync(userId: string): Promise<DailyMi
      const criticalMockSubjects = mockImpact?.isFailed ? mockImpact.criticalTopics : []; // Aqui criticalTopics na vdd são as matérias críticas no mock
 
      // Calcular prioridade para cada matéria
-     const subjectsWithPriority = subjects.map(s => {
+     const subjectsWithPriority = (subjects || []).map((s: any) => {
        let p = calculatePriority(s.weight, Number(s.current_accuracy), s.target_accuracy);
        
        // Boost F3.1: Se a matéria foi crítica no simulado (nota < 50%), aumenta peso em 50%
@@ -128,7 +128,7 @@ export async function generateDailyMissionAsync(userId: string): Promise<DailyMi
           p *= 1.5;
        }
        return { ...s, calculatedPriority: p };
-     }).sort((a,b) => b.calculatedPriority - a.calculatedPriority);
+     }).sort((a: any, b: any) => b.calculatedPriority - a.calculatedPriority);
 
      const topSubject = subjectsWithPriority[0];
      
@@ -141,7 +141,7 @@ export async function generateDailyMissionAsync(userId: string): Promise<DailyMi
 
      let targetTopic = 'Geral';
      if (subjectTopics && subjectTopics.length > 0) {
-        const prioritizedTopics = subjectTopics.map(t => {
+        const prioritizedTopics = subjectTopics.map((t: any) => {
            const threshold = topSubject.target_accuracy || 70;
            const trustFactor = t.attempts >= 5 ? 1 : (t.attempts / 5);
            const gap = Math.max(0, (threshold - t.accuracy) / threshold) * trustFactor;
@@ -151,7 +151,7 @@ export async function generateDailyMissionAsync(userId: string): Promise<DailyMi
               ...t,
               topicPriority: (1 + gap) * (1 + recurrenceFactor)
            };
-        }).sort((a,b) => b.topicPriority - a.topicPriority);
+        }).sort((a: any, b: any) => b.topicPriority - a.topicPriority);
 
         targetTopic = prioritizedTopics[0].canonical_topic;
      }

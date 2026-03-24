@@ -28,8 +28,8 @@ export async function GET() {
   // 3. GERAR MISSÃO (Motor Assíncrono F3.1 - Modo Impacto)
   const missionData = await generateDailyMissionAsync(user.id);
 
-  const totalQuestions = sessions?.reduce((acc, s) => acc + s.total_questions, 0) || 0;
-  const totalHits = sessions?.reduce((acc, s) => acc + s.correct_answers, 0) || 0;
+  const totalQuestions = sessions?.reduce((acc: number, s: any) => acc + s.total_questions, 0) || 0;
+  const totalHits = sessions?.reduce((acc: number, s: any) => acc + s.correct_answers, 0) || 0;
   const accuracy = totalQuestions > 0 ? (totalHits / totalQuestions) * 100 : 0;
 
   const mainMission = missionData.missions[0] || { topic: 'Geral', targetCount: 50 };

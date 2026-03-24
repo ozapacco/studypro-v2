@@ -38,7 +38,7 @@ export async function GET(request: Request) {
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     
     // Unique list of subjects
-    const uniqueSubjects = Array.from(new Set(subjects?.map(s => s.subject) || []));
+    const uniqueSubjects = Array.from(new Set(subjects?.map((s: any) => s.subject) || []));
     return NextResponse.json(uniqueSubjects);
   }
 }

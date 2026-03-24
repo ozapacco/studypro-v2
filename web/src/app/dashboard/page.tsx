@@ -92,18 +92,18 @@ async function getDashboardData() {
 
   let streak = 0;
   if (allSessions && allSessions.length > 0) {
-    const dates = Array.from(new Set(allSessions.map(s => (s.session_date as string).split('T')[0])));
+    const dates = Array.from(new Set(allSessions.map((s: any) => (s.session_date as string).split('T')[0])));
     const todayStr = new Date().toISOString().split('T')[0];
     
     // Se a última sessão não foi hoje nem ontem, streak é 0
-    const lastSessionDate = dates[0];
+    const lastSessionDate = dates[0] as string;
     const diff = (new Date(todayStr).getTime() - new Date(lastSessionDate).getTime()) / (1000 * 3600 * 24);
     
     if (diff <= 1) {
       streak = 1;
       for (let i = 0; i < dates.length - 1; i++) {
-        const d1 = new Date(dates[i]);
-        const d2 = new Date(dates[i+1]);
+        const d1 = new Date(dates[i] as string);
+        const d2 = new Date(dates[i+1] as string);
         const dayDiff = (d1.getTime() - d2.getTime()) / (1000 * 3600 * 24);
         if (dayDiff === 1) {
           streak++;
@@ -114,8 +114,8 @@ async function getDashboardData() {
     }
   }
 
-  const totalQuestions = sessions?.reduce((acc, s) => acc + s.total_questions, 0) || 0;
-  const totalHits = sessions?.reduce((acc, s) => acc + s.correct_answers, 0) || 0;
+  const totalQuestions = sessions?.reduce((acc: number, s: any) => acc + s.total_questions, 0) || 0;
+  const totalHits = sessions?.reduce((acc: number, s: any) => acc + s.correct_answers, 0) || 0;
   const accuracy = totalQuestions > 0 ? (totalHits / totalQuestions) * 100 : 0;
 
   const mockImpact = await getMockImpact(userId);

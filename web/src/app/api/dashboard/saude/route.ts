@@ -33,7 +33,7 @@ export async function GET() {
   // 4. Calcular Nota Projetada (Média dos últimos 3 simulados + tendência)
   const last3Mocks = (mocks || []).slice(-3);
   const currentAvg = last3Mocks.length > 0 
-    ? last3Mocks.reduce((acc, m) => acc + (m.total_score || 0), 0) / last3Mocks.length 
+    ? last3Mocks.reduce((acc: number, m: any) => acc + (m.total_score || 0), 0) / last3Mocks.length 
     : 0;
     
   // Projetar 1.5% de ganho semanal até a prova (ex: 30 dias = 4 semanas = 6.0%)
@@ -45,7 +45,7 @@ export async function GET() {
     projectedScore,
     performance: {
        best: topics?.slice(0, 3) || [],
-       worst: topics?.filter(t => t.attempts > 5).slice(-3) || []
+       worst: topics?.filter((t: any) => t.attempts > 5).slice(-3) || []
     }
   });
 }

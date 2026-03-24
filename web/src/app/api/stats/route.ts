@@ -21,7 +21,7 @@ export async function GET() {
 
   // 2. Performance by Platform
   const platforms: Record<string, { total: number; hits: number }> = {};
-  (sessions || []).forEach(s => {
+  (sessions || []).forEach((s: any) => {
     const p = s.platform || 'Other';
     if (!platforms[p]) platforms[p] = { total: 0, hits: 0 };
     platforms[p].total += s.total_questions;
@@ -30,7 +30,7 @@ export async function GET() {
 
   // 3. Weekly Evolution (Last 8 weeks)
   const weeklyStats: Record<string, { total: number; hits: number }> = {};
-  (sessions || []).forEach(s => {
+  (sessions || []).forEach((s: any) => {
     const date = new Date(s.session_date);
     const week = getWeekNumber(date);
     const key = `W${week}-${date.getFullYear()}`;
@@ -53,8 +53,8 @@ export async function GET() {
     .eq('user_id', user.id);
 
   const recoveryStats = {
-     open: recoveryItems?.filter(i => i.status === 'open' || i.status === 'in_progress').length || 0,
-     done: recoveryItems?.filter(i => i.status === 'done').length || 0,
+     open: recoveryItems?.filter((i: any) => i.status === 'open' || i.status === 'in_progress').length || 0,
+     done: recoveryItems?.filter((i: any) => i.status === 'done').length || 0,
   };
 
   // 6. Totais Globais
@@ -65,9 +65,9 @@ export async function GET() {
   
   let weightedSum = 0;
   let totalWeight = 0;
-  (allSubjects || []).forEach(s => {
-      weightedSum += (Number(s.current_accuracy) * s.weight);
-      totalWeight += s.weight;
+  (allSubjects || []).forEach((sub: any) => {
+      weightedSum += (Number(sub.current_accuracy) * sub.weight);
+      totalWeight += sub.weight;
   });
   const projection = totalWeight > 0 ? Math.round(weightedSum / totalWeight) : profile?.average_accuracy;
 
