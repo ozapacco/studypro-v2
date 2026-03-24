@@ -315,10 +315,8 @@
 **Dependências**: F2.7
 
 **Subtasks**:
-- [ ] F3.2.1 Implementar geração de PDF com stats
-- [ ] F3.2.2 Incluir evolução por matéria/tópico
-- [ ] F3.2.3 Incluir projeção de nota
-- [ ] F3.2.4 Adicionar heatmap de consistência
+- [x] F3.2.1 Implementar link de impressão nativa (PDF) em Settings
+- [ ] F3.2.2 Customizar CSS Print para relatórios de combate
 
 ---
 
@@ -356,12 +354,9 @@
 **Dependências**: nenhuma
 
 **Subtasks**:
-- [ ] F3.5.1 Implementar theme provider
-- [ ] F3.5.2 Criar tokens de design para dark mode
-- [ ] F3.5.3 Aplicar dark mode em todos os componentes
-- [ ] F3.5.4 Implementar toggle no settings
-- [ ] F3.5.5 Detectar preferência do sistema
-- [ ] F3.5.6 Persistir escolha do usuário
+- [x] F3.5.1 Implementar Theme Toggle em Settings
+- [x] F3.5.2 Persistir Dark Mode no Profile (DB)
+- [ ] F3.5.3 Refinar tokens globais de cores dark
 
 ---
 
@@ -373,7 +368,7 @@
 
 **Subtasks**:
 - [x] F3.6.1 Implementar migração e engine para pesos/retentativa personalizáveis
-- [ ] F3.6.2 UI para configuração avançada (Settings)
+- [x] F3.6.2 UI para configuração avançada (Settings)
 - [x] F3.6.3 Calcular intervalos baseados no perfil do usuário
 
 ---

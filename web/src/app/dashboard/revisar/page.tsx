@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/Button';
-import { ArrowLeft, ExternalLink, RefreshCw, Layers, Check, X, RotateCcw } from 'lucide-react';
+import { ArrowLeft, ExternalLink, RefreshCw, Layers, Check, X, RotateCcw, Edit3, Save } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
@@ -21,6 +21,8 @@ export default function RevisarPage() {
   const [loading, setLoading] = useState(true);
   const [showAnswer, setShowAnswer] = useState(false);
   const [processing, setProcessing] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedContext, setEditedContext] = useState('');
 
   useEffect(() => {
     fetchCards();
@@ -54,6 +56,35 @@ export default function RevisarPage() {
       // Remove the reviewed card
       setCards(prev => prev.slice(1));
       setShowAnswer(false);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const handleUpdateCard = async () => {
+    if (cards.length === 0) return;
+    setProcessing(true);
+    const currentCard = cards[0];
+
+    try {
+      await fetch('/api/cards/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+           cardId: currentCard.id, 
+           updates: { error_context: editedContext } 
+        })
+      });
+
+      // Update local state
+      setCards(prev => {
+        const newCards = [...prev];
+        newCards[0] = { ...newCards[0], error_context: editedContext };
+        return newCards;
+      });
+      setIsEditing(false);
     } catch (err) {
       console.error(err);
     } finally {
@@ -132,12 +163,43 @@ export default function RevisarPage() {
               </div>
 
               <div className="mt-auto">
-                <Button 
-                  className="w-full py-8 h-16 rounded-2xl text-lg font-black bg-blue-600 hover:bg-blue-700 shadow-xl shadow-blue-600/30"
-                  onClick={() => setShowAnswer(true)}
-                >
-                  Revelar
-                </Button>
+                {!isEditing && (
+                  <Button 
+                    variant="outline"
+                    className="w-full h-10 mb-3 border-slate-200 text-slate-400 rounded-xl"
+                    onClick={() => {
+                       setEditedContext(card.error_context || '');
+                       setIsEditing(true);
+                    }}
+                  >
+                    <Edit3 size={16} className="mr-2" />
+                    Enriquecer Contexto
+                  </Button>
+                )}
+
+                {isEditing ? (
+                  <div className="space-y-3">
+                    <textarea 
+                       className="w-full bg-slate-50 border-2 border-blue-100 rounded-2xl p-4 text-xs font-bold text-slate-900 h-24 focus:border-blue-500 outline-none"
+                       placeholder="Escreva a pegadinha ou regra esquecida..."
+                       value={editedContext}
+                       onChange={(e) => setEditedContext(e.target.value)}
+                    />
+                    <div className="flex gap-2">
+                       <Button variant="ghost" className="flex-1" onClick={() => setIsEditing(false)}>Cancelar</Button>
+                       <Button className="flex-1 bg-blue-600" onClick={handleUpdateCard}>
+                          <Save size={16} className="mr-2" /> Salvar
+                       </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <Button 
+                    className="w-full py-8 h-16 rounded-2xl text-lg font-black bg-blue-600 hover:bg-blue-700 shadow-xl shadow-blue-600/30"
+                    onClick={() => setShowAnswer(true)}
+                  >
+                    Revelar
+                  </Button>
+                )}
               </div>
             </div>
 
