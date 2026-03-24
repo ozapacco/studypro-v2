@@ -153,9 +153,9 @@ async function getDashboardData() {
     },
     recoveryQueue: recoveryQueue || []
   };
- } catch (err) {
+ } catch (err: any) {
     console.error('DASHBOARD_FATAL:', err);
-    return { error: 'Erro ao carregar dados' };
+    return { error: err.message || 'Erro ao carregar dados' };
  }
 }
 
