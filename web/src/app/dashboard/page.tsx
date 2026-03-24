@@ -30,14 +30,16 @@ async function getDashboardData() {
   if (!supabase) {
     return { error: 'Supabase não configurado' };
   }
-  const { data: userData } = await supabase.auth.getUser();
-  if (!userData?.user) {
-    return redirect('/login');
-  }
-  const user = userData.user;
-
-  // Com o usuário autenticado, podemos prosseguir
-  const userId = user.id;
+  // BYPASS AUTH: Hardcoding Guest User as requested
+  const userId = 'c20f5854-5600-4075-a0f0-563ccf385a0b';
+  const { data: userProfile } = await supabase.from('profiles').select('*').eq('id', userId).single();
+  
+  const user = {
+    user_metadata: {
+      full_name: userProfile?.full_name || 'Concurseiro',
+      avatar_url: userProfile?.avatar_url
+    }
+  };
 
   // Chamar API interna (simulado via call direta se possível, mas aqui usamos a lógica)
   // Como estamos em Server Component, podemos ler do Supabase diretamente.
