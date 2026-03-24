@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
-import { evaluateSessionForRecovery, triggerRecovery } from '../../../../../src/lib/engines/recovery';
-import type { ErrorType } from '../../../../../src/types';
+import { evaluateSessionForRecovery, triggerRecovery } from '@/lib/engines/recovery';
+import type { ErrorType } from '@/types';
 
 export async function POST(request: Request) {
   const body = await request.json();

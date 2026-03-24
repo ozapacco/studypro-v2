@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
-import { generateDailyMissionAsync } from '../../../../../src/lib/engines/planner';
+import { generateDailyMissionAsync } from '@/lib/engines/planner';
 
 export async function GET() {
   const supabase = createServerSupabaseClient();
@@ -46,10 +46,10 @@ export async function GET() {
       streak: 3 // Mocked
     },
     mission: {
-      title: missionData.explanation.includes('Impacto') ? "Missão: Recuperação de Guerra" : "Missão do Dia",
-      description: missionData.explanation,
-      reason: missionData.explanation,
-      type: missionData.explanation.includes('Impacto') ? 'Recuperação' : 'Meta Base',
+      title: missionData.explanation?.includes('Impacto') ? "Missão: Recuperação de Guerra" : "Missão do Dia",
+      description: missionData.explanation || "Continue sua evolução diária.",
+      reason: missionData.explanation || "Meta calculada pelo motor de prioridade.",
+      type: missionData.explanation?.includes('Impacto') ? 'Recuperação' : 'Meta Base',
       progress: Math.min(100, Math.round((totalQuestions / mainMission.targetCount) * 100)),
       subject: mainMission.subject,
       topic: mainMission.topic
