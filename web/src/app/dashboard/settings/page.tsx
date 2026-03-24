@@ -55,7 +55,7 @@ export default function SettingsPage() {
 
   const logout = async () => {
     await fetch('/api/auth/logout', { method: 'POST' });
-    router.push('/auth/login');
+    router.push('/login');
   };
 
   if (loading) return (

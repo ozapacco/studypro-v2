@@ -32,7 +32,7 @@ async function getDashboardData() {
   }
   const { data: userData } = await supabase.auth.getUser();
   if (!userData?.user) {
-    return redirect('/auth/login');
+    return redirect('/login');
   }
   const user = userData.user;
 
