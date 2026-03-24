@@ -1,4 +1,4 @@
-﻿import React from 'react';
+import React from 'react';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { Button } from '@/components/ui/Button';
 import { 
@@ -28,7 +28,7 @@ async function getDashboardData() {
  try {
   const supabase = createServerSupabaseClient();
   if (!supabase) {
-    return { error: 'Supabase nÃ£o configurado' };
+    return { error: 'Supabase não configurado' };
   }
   const { data: { user: authUser } } = await supabase.auth.getUser();
   if (!authUser) {
@@ -44,7 +44,7 @@ async function getDashboardData() {
     }
   };
 
-  // Chamar API interna (simulado via call direta se possÃ­vel, mas aqui usamos a lÃ³gica)
+  // Chamar API interna (simulado via call direta se possà­vel, mas aqui usamos a là³gica)
   // Como estamos em Server Component, podemos ler do Supabase diretamente.
   
   // 1. Sessions de hoje
@@ -62,17 +62,17 @@ async function getDashboardData() {
     .eq('user_id', userId)
     .lte('due_date', new Date().toISOString());
 
-  // 3. MatÃ©ria fraca e TÃ³pico crÃ­tico
+  // 3. Matà©ria fraca e Tà³pico crà­tico
   const { data: weakTopics } = await supabase
     .from('topic_performance')
     .select('subject, canonical_topic, accuracy, attempts')
     .eq('user_id', userId)
-    .gt('attempts', 5) // MÃ­nimo de amostragem
+    .gt('attempts', 5) // Mà­nimo de amostragem
     .order('accuracy', { ascending: true })
     .limit(3);
 
   
-  // 4. Fila de RecuperaÃ§Ã£o (F2.3)
+  // 4. Fila de Recuperaà§ão (F2.3)
   const { data: recoveryQueue } = await supabase
     .from('recovery_queue')
     .select('*')
@@ -92,7 +92,7 @@ async function getDashboardData() {
     const dates = Array.from(new Set(allSessions.map((s: any) => (s.session_date as string).split('T')[0])));
     const todayStr = new Date().toISOString().split('T')[0];
     
-    // Se a Ãºltima sessÃ£o nÃ£o foi hoje nem ontem, streak Ã© 0
+    // Se a àºltima sessão não foi hoje nem ontem, streak à© 0
     const lastSessionDate = dates[0] as string;
     const diff = (new Date(todayStr).getTime() - new Date(lastSessionDate).getTime()) / (1000 * 3600 * 24);
     
@@ -139,19 +139,19 @@ async function getDashboardData() {
     mission: {
       title: dailyMission.missions[0]?.subject || 'Inicie seu Ciclo',
       description: dailyMission.missions[0]?.topic 
-        ? `PrÃ¡tica de **${dailyMission.missions[0].topic}**.`
-        : 'Sua meta Ã© manter a constÃ¢ncia hoje.',
+        ? `Prática de **${dailyMission.missions[0].topic}**.`
+        : 'Sua meta à© manter a CONSTÂNCIA hoje.',
       reason: dailyMission.explanation,
       progress: dailyMission.missions[0]?.targetCount 
         ? Math.min(100, Math.round((totalQuestions / dailyMission.missions[0].targetCount) * 100))
         : 0,
-      type: dailyMission.missions[0]?.type === 'review' ? 'ManutenÃ§Ã£o' : 'ReforÃ§o',
+      type: dailyMission.missions[0]?.type === 'review' ? 'Manutenà§ão' : 'Reforà§o',
       explanation: dailyMission.explanation
     },
     recoveryQueue: recoveryQueue || []
   };
  } catch (err: any) {
-    // CRÃTICO: NÃ£o capturar NEXT_REDIRECT pois ele Ã© usado pelo Next.js para redirecionar de fato.
+    // CRàTICO: Não capturar NEXT_REDIRECT pois ele à© usado pelo Next.js para redirecionar de fato.
     if (err?.message === 'NEXT_REDIRECT' || err?.digest?.includes('NEXT_REDIRECT')) {
        throw err;
     }
@@ -170,18 +170,18 @@ export default async function DashboardPage() {
            <div className="w-20 h-20 bg-red-100 rounded-3xl flex items-center justify-center mx-auto mb-6">
               <AlertTriangle size={40} className="text-red-600" />
            </div>
-           <h2 className="text-2xl font-black text-slate-900 mb-2">Falha de ConexÃ£o</h2>
+           <h2 className="text-2xl font-black text-slate-900 mb-2">Falha de Conexão</h2>
            <p className="text-sm font-medium text-slate-500 leading-relaxed mb-8">
-             O sistema nÃ£o conseguiu se comunicar com o banco de dados Supabase. Verifique as configuraÃ§Ãµes abaixo.
+             O sistema não conseguiu se comunicar com o banco de dados Supabase. Verifique as configurações abaixo.
            </p>
 
            <div className="bg-slate-50 rounded-2xl p-6 text-left mb-8 space-y-3">
               <div className="flex justify-between items-center text-xs font-bold uppercase tracking-widest text-slate-400">
-                <span>DiagnÃ³stico Operacional</span>
+                <span>Diagnà³stico Operacional</span>
               </div>
               <div className="h-px bg-slate-100" />
               <div className="flex justify-between text-sm">
-                <span className="text-slate-500 font-bold">VariÃ¡veis ENV:</span>
+                <span className="text-slate-500 font-bold">Variáveis ENV:</span>
                 <span className={process.env.NEXT_PUBLIC_SUPABASE_URL ? "text-green-600 font-black" : "text-red-500 font-black"}>
                   {process.env.NEXT_PUBLIC_SUPABASE_URL ? "DETECTADAS" : "AUSENTES"}
                 </span>
@@ -199,7 +199,7 @@ export default async function DashboardPage() {
              <Link href="/" className="block w-full p-4 bg-blue-600 text-white rounded-2xl font-black shadow-lg shadow-blue-200 hover:bg-blue-700 transition-all">
                 Tentar Novamente
              </Link>
-             <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tight">Dica: Um "Redeploy" na Vercel Ã© necessÃ¡rio apÃ³s salvar chaves.</p>
+             <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tight">Dica: Um "Redeploy" na Vercel à© necessário apà³s salvar chaves.</p>
            </div>
         </div>
       </div>
@@ -216,7 +216,7 @@ export default async function DashboardPage() {
         <div className="flex justify-between items-center relative z-10">
           <div>
             <span className="text-slate-400 text-xs font-bold uppercase tracking-widest block mb-1">Cockpit Operacional</span>
-            <h1 className="text-2xl font-black text-slate-900 tracking-tight">Bom dia, {user.name} ðŸ‘‹</h1>
+            <h1 className="text-2xl font-black text-slate-900 tracking-tight">Bom dia, {user.name} 👋</h1>
           </div>
           <div className="flex items-center gap-3">
              <div className="w-10 h-10 rounded-2xl bg-white border border-slate-100 flex items-center justify-center shadow-sm relative">
@@ -240,7 +240,7 @@ export default async function DashboardPage() {
                  <Flame size={20} />
               </div>
               <div>
-                 <span className="text-[10px] font-black text-slate-400 uppercase tracking-tight">ConstÃ¢ncia</span>
+                 <span className="text-[10px] font-black text-slate-400 uppercase tracking-tight">CONSTÂNCIA</span>
                  <p className="font-black text-slate-900 leading-none">{stats.streak} Dias</p>
               </div>
            </div>
@@ -249,7 +249,7 @@ export default async function DashboardPage() {
                  <Target size={20} />
               </div>
               <div>
-                 <span className="text-[10px] font-black text-slate-400 uppercase tracking-tight">Acerto MÃ©dio</span>
+                 <span className="text-[10px] font-black text-slate-400 uppercase tracking-tight">Acerto Mà©dio</span>
                  <p className="font-black text-green-600 leading-none">{stats.accuracy}%</p>
               </div>
            </div>
@@ -265,8 +265,8 @@ export default async function DashboardPage() {
                     <AlertTriangle size={24} />
                  </div>
                  <div>
-                    <h3 className="text-sm font-black text-red-100 uppercase tracking-tighter">Modo PÃ³s-Impacto Ativo</h3>
-                    <p className="text-red-400 text-[10px] font-bold leading-none">SEU PLANO FOI ALTERADO PARA RECUPERAÃ‡ÃƒO</p>
+                    <h3 className="text-sm font-black text-red-100 uppercase tracking-tighter">Modo Pà³s-Impacto Ativo</h3>
+                    <p className="text-red-400 text-[10px] font-bold leading-none">SEU PLANO FOI ALTERADO PARA RECUPERAà‡àƒO</p>
                  </div>
               </div>
            </div>
@@ -283,8 +283,8 @@ export default async function DashboardPage() {
                  <Zap size={40} className="text-white" />
               </div>
               <div>
-                 <h2 className="text-3xl font-black">Pronto para a GlÃ³ria?</h2>
-                 <p className="text-blue-100 text-sm font-medium mt-2">Ainda nÃ£o detectamos seus pontos cegos. Comece agora sua primeira bateria!</p>
+                 <h2 className="text-3xl font-black">Pronto para a Glória?</h2>
+                 <p className="text-blue-100 text-sm font-medium mt-2">Ainda não detectamos seus pontos cegos. Comece agora sua primeira bateria!</p>
               </div>
               <Link href="/dashboard/registrar" className="block">
                  <Button className="w-full bg-white text-blue-700 h-16 rounded-2xl font-black text-lg shadow-lg">
@@ -294,7 +294,7 @@ export default async function DashboardPage() {
            </section>
         )}
 
-        {/* CicatrizaÃ§Ã£o Alert (If any) */}
+        {/* Cicatrização Alert (If any) */}
         {!data.isNewUser && stats.dueCards > 0 && (
           <Link href="/dashboard/revisar" className="block animate-in fade-in slide-in-from-top-4 duration-500">
             <div className="bg-amber-600 rounded-3xl p-6 text-white flex items-center justify-between shadow-xl shadow-amber-200 overflow-hidden relative group">
@@ -338,8 +338,8 @@ export default async function DashboardPage() {
                           </div>
                        </div>
                        <div className="text-right">
-                          <p className="text-[10px] font-black text-slate-400 uppercase leading-none">CrÃ­tico</p>
-                          <span className="text-xs font-black text-red-500">AÃ‡ÃƒO IMEDIATA</span>
+                          <p className="text-[10px] font-black text-slate-400 uppercase leading-none">Crà­tico</p>
+                          <span className="text-xs font-black text-red-500">Aà‡àƒO IMEDIATA</span>
                        </div>
                     </div>
 
@@ -349,7 +349,7 @@ export default async function DashboardPage() {
                              <Clock size={18} />
                           </div>
                           <div>
-                             <p className="text-[10px] font-black text-slate-400 uppercase leading-none">MatÃ©ria Fraca</p>
+                             <p className="text-[10px] font-black text-slate-400 uppercase leading-none">Matà©ria Fraca</p>
                              <h4 className="font-bold text-slate-900 text-sm">{stats.weakSubject}</h4>
                           </div>
                        </div>
@@ -362,7 +362,7 @@ export default async function DashboardPage() {
                  ) : (
                     <div className="py-4 text-center">
                        <p className="text-xs text-slate-400 font-semibold px-4 italic leading-tight">
-                         Amostragem insuficiente para diagnÃ³stico de saÃºde. Seus gatilhos de precisÃ£o aparecerÃ£o apÃ³s algumas sessÃµes.
+                         Amostragem insuficiente para diagnà³stico de saàºde. Seus gatilhos de precisão aparecerão apà³s algumas sessàµes.
                        </p>
                     </div>
                  )}
@@ -370,16 +370,16 @@ export default async function DashboardPage() {
            </section>
         )}
 
-        {/* Fila de RecuperaÃ§Ã£o (F2.3) */}
+        {/* Fila de Recuperação (F2.3) */}
         {recoveryQueue && recoveryQueue.length > 0 && (
           <section className="space-y-4">
              <div className="flex justify-between items-center px-2">
                 <h3 className="font-black text-slate-900 text-sm uppercase tracking-widest flex items-center gap-2">
                    <RotateCcw size={16} className="text-amber-600" />
-                   Fila de RecuperaÃ§Ã£o
+                   Fila de Recuperação
                 </h3>
                 <span className="text-[10px] font-black bg-amber-100 text-amber-700 px-2 py-1 rounded-full uppercase">
-                   {recoveryQueue.length} {recoveryQueue.length === 1 ? 'TÃ³pico' : 'TÃ³picos'}
+                   {recoveryQueue.length} {recoveryQueue.length === 1 ? 'Tópico' : 'Tópicos'}
                 </span>
              </div>
              
@@ -397,11 +397,11 @@ export default async function DashboardPage() {
                         </div>
                      </div>
                      <p className="text-[10px] text-slate-500 font-medium mb-4">
-                        {item.reason === 'never_learned' ? 'ðŸš¨ Base fraca detectada' : 'ðŸ©¹ AcurÃ¡cia crÃ­tica'}
+                        {item.reason === 'never_learned' ? 'ðŸš¨ Base fraca detectada' : 'ðŸ©¹ Acurácia crà­tica'}
                      </p>
                      <Link href={`/dashboard/recuperacao/${item.id}`} className="block">
                         <Button className="w-full h-10 text-[10px] font-black uppercase text-amber-700 bg-amber-50 hover:bg-amber-100 border-none shadow-none rounded-xl">
-                           Iniciar Plano de AÃ§Ã£o
+                           Iniciar Plano de Ação
                         </Button>
                      </Link>
                   </div>
@@ -431,7 +431,7 @@ export default async function DashboardPage() {
 
             <div className="space-y-4">
               <div className="flex justify-between items-end mb-1">
-                 <span className="text-[10px] font-black text-blue-200 uppercase tracking-widest">Progresso da MissÃ£o</span>
+                 <span className="text-[10px] font-black text-blue-200 uppercase tracking-widest">Progresso da Missão</span>
                  <span className="text-lg font-black">{mission.progress}%</span>
               </div>
               <div className="h-3 bg-blue-900/40 rounded-full overflow-hidden border border-white/10">
@@ -471,7 +471,7 @@ export default async function DashboardPage() {
                  </div>
                  <div>
                     <h4 className="font-bold text-slate-900 text-sm">Resumo do Dia</h4>
-                    <p className="text-xs text-slate-500 font-medium">{stats.totalQuestions} questÃµes hoje.</p>
+                    <p className="text-xs text-slate-500 font-medium">{stats.totalQuestions} questões hoje.</p>
                  </div>
               </div>
               <div className="text-right">

@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { type NextRequest } from 'next/server'
 
 export function middleware(request: NextRequest) {
-  // ATENÇÃO: Auth bypassado por solicitação do usuário para focar no desenvolvimento do core.
+  // ATENÇàO: Auth bypassado por solicitação do usuário para focar no desenvolvimento do core.
   return NextResponse.next()
 }
 
