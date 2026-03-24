@@ -165,15 +165,41 @@ export default async function DashboardPage() {
   if ('error' in data) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen p-6 text-center bg-slate-50">
-        <div className="bg-red-50 p-8 rounded-[40px] border border-red-100 max-w-sm">
-           <AlertTriangle size={48} className="text-red-500 mx-auto mb-4" />
-           <h2 className="text-xl font-black text-red-900 mb-2">Erro Operacional</h2>
-           <p className="text-xs font-medium text-red-700 leading-relaxed mb-6">
-             O sistema não conseguiu se conectar ao motor de inteligência. Verifique as chaves do Supabase nas variáveis de ambiente.
+        <div className="bg-white p-10 rounded-[40px] border border-slate-200 shadow-xl max-w-lg w-full">
+           <div className="w-20 h-20 bg-red-100 rounded-3xl flex items-center justify-center mx-auto mb-6">
+              <AlertTriangle size={40} className="text-red-600" />
+           </div>
+           <h2 className="text-2xl font-black text-slate-900 mb-2">Falha de Conexão</h2>
+           <p className="text-sm font-medium text-slate-500 leading-relaxed mb-8">
+             O sistema não conseguiu se comunicar com o banco de dados Supabase. Verifique as configurações abaixo.
            </p>
-           <Link href="/" className="inline-block p-4 bg-red-600 text-white rounded-2xl font-black">
-              Recarregar Sistema
-           </Link>
+
+           <div className="bg-slate-50 rounded-2xl p-6 text-left mb-8 space-y-3">
+              <div className="flex justify-between items-center text-xs font-bold uppercase tracking-widest text-slate-400">
+                <span>Diagnóstico Operacional</span>
+              </div>
+              <div className="h-px bg-slate-100" />
+              <div className="flex justify-between text-sm">
+                <span className="text-slate-500 font-bold">Variáveis ENV:</span>
+                <span className={process.env.NEXT_PUBLIC_SUPABASE_URL ? "text-green-600 font-black" : "text-red-500 font-black"}>
+                  {process.env.NEXT_PUBLIC_SUPABASE_URL ? "DETECTADAS" : "AUSENTES"}
+                </span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-slate-500 font-bold">Auth Session:</span>
+                <span className="text-amber-500 font-black italic">AGUARDANDO SYNC</span>
+              </div>
+              <div className="mt-4 p-3 bg-red-50 rounded-xl text-[10px] font-mono text-red-600 overflow-hidden">
+                ERROR_LOG: {String(data.error).toUpperCase()}
+              </div>
+           </div>
+
+           <div className="space-y-3">
+             <Link href="/" className="block w-full p-4 bg-blue-600 text-white rounded-2xl font-black shadow-lg shadow-blue-200 hover:bg-blue-700 transition-all">
+                Tentar Novamente
+             </Link>
+             <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tight">Dica: Um "Redeploy" na Vercel é necessário após salvar chaves.</p>
+           </div>
         </div>
       </div>
     );
