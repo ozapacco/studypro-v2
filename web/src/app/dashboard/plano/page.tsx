@@ -1,128 +1,268 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/Button';
-import { 
-  Plus, 
-  RotateCcw, 
-  Target, 
-  TrendingUp, 
-  Zap, 
-  CheckCircle2, 
-  AlertCircle,
-  BarChart3,
-  Calendar,
-  Flame,
-  LayoutDashboard,
-  Settings,
-  Scale,
-  BrainCircuit,
-  PieChart
-} from 'lucide-react';
-import { cn } from '@/lib/utils';
 import Link from 'next/link';
 
-const SUBJECT_PRIORITIES = [
-  { subject: 'Direito Penal', weight: 15, gap: 12, trend: 'up', status: 'prioridade_alta' },
-  { subject: 'Direito Adm.', weight: 12, gap: 5, trend: 'stable', status: 'em_dia' },
-  { subject: 'Português', weight: 20, gap: 18, trend: 'down', status: 'alerta_crítico' },
-  { subject: 'Constitucional', weight: 12, gap: 8, trend: 'up', status: 'prioridade_media' }
-];
+type Subject = {
+  id: string;
+  name: string;
+  weight: number;
+  target_accuracy: number;
+  current_accuracy?: number;
+};
+
+type Topic = {
+  id: string;
+  subject: string;
+  canonical: string;
+  aliases: string[];
+};
 
 export default function PlannerPage() {
-  const [autoAdjust, setAutoAdjust] = useState(true);
+  const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [topics, setTopics] = useState<Topic[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  const [newSubjectName, setNewSubjectName] = useState('');
+  const [newSubjectWeight, setNewSubjectWeight] = useState(20);
+  const [newSubjectTarget, setNewSubjectTarget] = useState(70);
+
+  const [topicSubject, setTopicSubject] = useState('');
+  const [topicCanonical, setTopicCanonical] = useState('');
+  const [topicAliases, setTopicAliases] = useState('');
+
+  const selectedSubjectTopics = useMemo(
+    () => topics.filter((t) => t.subject === topicSubject),
+    [topics, topicSubject]
+  );
+
+  async function loadData() {
+    setLoading(true);
+    try {
+      const [subjectsRes, topicsRes] = await Promise.all([
+        fetch('/api/subjects?detailed=1'),
+        fetch('/api/topics')
+      ]);
+      const subjectsData = await subjectsRes.json();
+      const topicsData = await topicsRes.json();
+
+      setSubjects(Array.isArray(subjectsData) ? subjectsData : []);
+      setTopics(Array.isArray(topicsData) ? topicsData : []);
+      if (!topicSubject && Array.isArray(subjectsData) && subjectsData.length > 0) {
+        setTopicSubject(subjectsData[0].name);
+      }
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  async function handleAddSubject() {
+    if (!newSubjectName.trim()) return;
+    setSaving(true);
+    try {
+      await fetch('/api/subjects', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          mode: 'subject',
+          name: newSubjectName.trim(),
+          weight: newSubjectWeight,
+          target_accuracy: newSubjectTarget
+        })
+      });
+      setNewSubjectName('');
+      await loadData();
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleDeleteSubject(id: string) {
+    setSaving(true);
+    try {
+      await fetch(`/api/subjects?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
+      await loadData();
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleAddTopic() {
+    if (!topicSubject || !topicCanonical.trim()) return;
+    setSaving(true);
+    try {
+      const aliases = topicAliases
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean);
+
+      await fetch('/api/subjects', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          mode: 'topic',
+          subject: topicSubject,
+          canonical: topicCanonical.trim(),
+          aliases
+        })
+      });
+
+      setTopicCanonical('');
+      setTopicAliases('');
+      await loadData();
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleDeleteTopic(id: string) {
+    setSaving(true);
+    try {
+      await fetch(`/api/topics?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
+      await loadData();
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-50 p-6">
+        <div className="max-w-3xl mx-auto bg-white rounded-2xl p-6">Carregando plano...</div>
+      </div>
+    );
+  }
 
   return (
-    <div className="flex flex-col min-h-screen pb-20 bg-slate-50">
-      <header className="bg-white px-6 pt-10 pb-8 rounded-b-[40px] shadow-sm">
-        <div className="flex justify-between items-center mb-6">
-           <div>
-              <span className="text-slate-400 text-xs font-bold uppercase tracking-widest block mb-1">Estratégia do Plano</span>
-              <h1 className="text-2xl font-black text-slate-900 tracking-tight">Meus Resultados</h1>
-           </div>
-           <div className="w-10 h-10 rounded-2xl bg-blue-50 flex items-center justify-center text-blue-600">
-              <Scale size={20} />
-           </div>
+    <div className="min-h-screen bg-slate-50 pb-20">
+      <div className="max-w-3xl mx-auto p-6 space-y-6">
+        <div className="bg-white rounded-2xl p-6 border border-slate-200">
+          <h1 className="text-2xl font-bold text-slate-900">Plano de Estudos (Disciplinas e Assuntos)</h1>
+          <p className="text-sm text-slate-500 mt-1">
+            Cadastro funcional orientado ao spec: disciplinas com peso/meta e assuntos canônicos por disciplina.
+          </p>
         </div>
 
-        {/* Global Strategy Toggles */}
-        <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100">
-           <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-3">
-                 <div className="w-8 h-8 bg-blue-600 rounded-xl flex items-center justify-center text-white">
-                    <BrainCircuit size={16} />
-                 </div>
-                 <h3 className="font-bold text-slate-900 text-sm italic tracking-tight">Ajuste Inteligente</h3>
-              </div>
-              <button 
-                onClick={() => setAutoAdjust(!autoAdjust)}
-                className={cn(
-                  "w-12 h-6 rounded-full transition-all relative overflow-hidden",
-                  autoAdjust ? "bg-blue-600" : "bg-slate-300"
-                )}
-              >
-                <div className={cn(
-                  "absolute top-1 w-4 h-4 bg-white rounded-full transition-all",
-                  autoAdjust ? "right-1" : "left-1"
-                )} />
-              </button>
-           </div>
-           <p className="text-[10px] font-bold uppercase text-slate-400 tracking-widest leading-none">
-             O Orquestrador recalcula prioridades baseado em seus erros recentes de forma automática.
-           </p>
+        <div className="bg-white rounded-2xl p-6 border border-slate-200 space-y-4">
+          <h2 className="text-lg font-semibold text-slate-900">Cadastrar Disciplina</h2>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+            <input
+              className="border border-slate-300 rounded-xl px-3 py-2 md:col-span-2"
+              placeholder="Nome da disciplina"
+              value={newSubjectName}
+              onChange={(e) => setNewSubjectName(e.target.value)}
+            />
+            <input
+              className="border border-slate-300 rounded-xl px-3 py-2"
+              type="number"
+              min={0}
+              max={100}
+              placeholder="Peso"
+              value={newSubjectWeight}
+              onChange={(e) => setNewSubjectWeight(Number(e.target.value))}
+            />
+            <input
+              className="border border-slate-300 rounded-xl px-3 py-2"
+              type="number"
+              min={40}
+              max={95}
+              placeholder="Meta (%)"
+              value={newSubjectTarget}
+              onChange={(e) => setNewSubjectTarget(Number(e.target.value))}
+            />
+          </div>
+          <Button onClick={handleAddSubject} disabled={saving}>
+            Adicionar disciplina
+          </Button>
         </div>
-      </header>
 
-      <main className="p-6 space-y-6">
-        
-        {/* Materias e pesos */}
-        <section className="space-y-4">
-           <div className="flex justify-between items-center px-2">
-              <h3 className="font-black text-slate-900 text-sm uppercase tracking-widest">Peso x Gap por Matéria</h3>
-              <PieChart size={18} className="text-slate-400" />
-           </div>
-
-           <div className="space-y-3">
-              {SUBJECT_PRIORITIES.map((s) => (
-                <div key={s.subject} className="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm group hover:border-blue-200 transition-all flex items-center justify-between relative overflow-hidden">
-                   {s.status === 'alerta_crítico' && (
-                      <div className="absolute top-0 right-0 p-1 px-3 bg-red-100 text-red-600 text-[8px] font-black uppercase rounded-bl-xl tracking-widest">Atenção Crítica</div>
-                   )}
-                   <div className="space-y-1">
-                      <h4 className="font-bold text-slate-900">{s.subject}</h4>
-                      <div className="flex items-center gap-3">
-                         <span className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">Peso: {s.weight}%</span>
-                         <span className={cn(
-                           "text-[10px] font-black uppercase px-2 py-0.5 rounded-full tracking-tighter",
-                           s.trend === 'up' ? "bg-green-50 text-green-700" : s.trend === 'down' ? "bg-red-50 text-red-700" : "bg-slate-50 text-slate-600"
-                         )}>
-                           Gap: {s.gap}%
-                         </span>
-                      </div>
-                   </div>
-                   <div className="flex flex-col items-end">
-                      <div className="w-10 h-10 bg-slate-100 group-hover:bg-blue-50 rounded-2xl flex items-center justify-center text-slate-400 group-hover:text-blue-600 transition-all">
-                        <TrendingUp size={18} className={cn(s.trend === 'down' && "rotate-90")} />
-                      </div>
-                   </div>
+        <div className="bg-white rounded-2xl p-6 border border-slate-200 space-y-4">
+          <h2 className="text-lg font-semibold text-slate-900">Disciplinas Cadastradas</h2>
+          {subjects.length === 0 && <p className="text-sm text-slate-500">Nenhuma disciplina cadastrada.</p>}
+          <div className="space-y-2">
+            {subjects.map((s) => (
+              <div key={s.id} className="flex items-center justify-between border border-slate-200 rounded-xl p-3">
+                <div>
+                  <p className="font-medium text-slate-900">{s.name}</p>
+                  <p className="text-xs text-slate-500">
+                    Peso: {s.weight}% | Meta: {s.target_accuracy}% | Atual: {Math.round(Number(s.current_accuracy || 0))}%
+                  </p>
                 </div>
+                <Button variant="outline" onClick={() => handleDeleteSubject(s.id)} disabled={saving}>
+                  Remover
+                </Button>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl p-6 border border-slate-200 space-y-4">
+          <h2 className="text-lg font-semibold text-slate-900">Cadastrar Assunto Canônico</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <select
+              className="border border-slate-300 rounded-xl px-3 py-2"
+              value={topicSubject}
+              onChange={(e) => setTopicSubject(e.target.value)}
+            >
+              {subjects.map((s) => (
+                <option key={s.id} value={s.name}>
+                  {s.name}
+                </option>
               ))}
-           </div>
-        </section>
+            </select>
+            <input
+              className="border border-slate-300 rounded-xl px-3 py-2"
+              placeholder="Assunto canônico"
+              value={topicCanonical}
+              onChange={(e) => setTopicCanonical(e.target.value)}
+            />
+            <input
+              className="border border-slate-300 rounded-xl px-3 py-2"
+              placeholder="Aliases (separados por vírgula)"
+              value={topicAliases}
+              onChange={(e) => setTopicAliases(e.target.value)}
+            />
+          </div>
+          <Button onClick={handleAddTopic} disabled={saving || !topicSubject}>
+            Adicionar assunto
+          </Button>
+        </div>
 
-        {/* Action Info */}
-        <section className="bg-white/50 backdrop-blur-sm p-6 rounded-[40px] border-2 border-dashed border-slate-200 text-center">
-            <h3 className="font-black text-slate-900 text-lg mb-2">Refinar Estratégia</h3>
-            <p className="text-slate-500 text-xs font-medium mb-6 px-4">
-              Você pode ajustar seu objetivo de acertos (Target Score) para que o orquestrador seja mais exigente.
-            </p>
-            <Button variant="outline" className="w-full py-6 rounded-2xl font-bold border-2">
-               Alterar Configurações Base
-               <Settings size={18} className="ml-2" />
-            </Button>
-        </section>
+        <div className="bg-white rounded-2xl p-6 border border-slate-200 space-y-4">
+          <h2 className="text-lg font-semibold text-slate-900">
+            Assuntos da Disciplina: <span className="text-blue-700">{topicSubject || '-'}</span>
+          </h2>
+          {selectedSubjectTopics.length === 0 && <p className="text-sm text-slate-500">Nenhum assunto cadastrado.</p>}
+          <div className="space-y-2">
+            {selectedSubjectTopics.map((t) => (
+              <div key={t.id} className="border border-slate-200 rounded-xl p-3 flex items-center justify-between gap-3">
+                <div>
+                  <p className="font-medium text-slate-900">{t.canonical}</p>
+                  <p className="text-xs text-slate-500">{(t.aliases || []).join(', ') || 'Sem aliases'}</p>
+                </div>
+                <Button variant="outline" onClick={() => handleDeleteTopic(t.id)} disabled={saving}>
+                  Remover
+                </Button>
+              </div>
+            ))}
+          </div>
+        </div>
 
-      </main>
+        <div className="flex gap-3">
+          <Link href="/dashboard" className="inline-block">
+            <Button variant="outline">Voltar ao Dashboard</Button>
+          </Link>
+          <Link href="/dashboard/registrar" className="inline-block">
+            <Button>Ir para Registrar Sessão</Button>
+          </Link>
+        </div>
+      </div>
     </div>
   );
 }

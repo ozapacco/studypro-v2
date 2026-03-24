@@ -1,19 +1,30 @@
 import { NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 
-const AVAILABLE_EXAMS = [
-  'Polícia Civil (Agente/Escrivão)',
-  'Polícia Militar (Soldado/Oficial)',
-  'Polícia Federal',
-  'Polícia Rodoviária Federal',
+const FALLBACK_EXAMS = [
+  'Policia Civil (Agente/Escrivao)',
+  'Policia Militar (Soldado/Oficial)',
+  'Policia Federal',
+  'Policia Rodoviaria Federal',
   'Guarda Municipal',
-  'Polícia Penal',
+  'Policia Penal'
 ];
 
 export async function GET() {
-  // Em um cenário real, buscaríamos do banco. 
-  // Aqui seguimos o dicionário pré-definido para Carreiras Policiais.
+  const supabase = createServerSupabaseClient();
+
+  const { data: templates } = await supabase
+    .from('exam_templates')
+    .select('name')
+    .order('name', { ascending: true });
+
+  if (templates && templates.length > 0) {
+    return NextResponse.json({
+      exams: templates.map((t: any) => t.name)
+    });
+  }
+
   return NextResponse.json({
-    exams: AVAILABLE_EXAMS,
+    exams: FALLBACK_EXAMS
   });
 }

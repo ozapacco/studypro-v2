@@ -1,4 +1,4 @@
-import type { RecoveryStatus, RecoveryReason, ErrorType } from '../../types';
+import type { ErrorType, RecoveryReason } from '../../types';
 
 interface RecoveryTrigger {
   detected: boolean;
@@ -8,10 +8,10 @@ interface RecoveryTrigger {
   errorCount: number;
 }
 
-const TRIGGER_THRESHOLD_LOW_ACCURACY = 0.6; // Se acurácia for < 60%
+const TRIGGER_THRESHOLD_LOW_ACCURACY = 0.6;
 
 export async function evaluateSessionForRecovery(
-  userId: string,
+  _userId: string,
   subject: string,
   topic: string,
   correct: number,
@@ -19,9 +19,8 @@ export async function evaluateSessionForRecovery(
   errorType: ErrorType
 ): Promise<RecoveryTrigger | null> {
   const total = correct + incorrect;
-  const accuracy = total > 0 ? (correct / total) : 0;
+  const accuracy = total > 0 ? correct / total : 0;
 
-  // Gatilho 1: Erro "Nunca Aprendi"
   if (errorType === 'never_learned') {
     return {
       detected: true,
@@ -32,15 +31,14 @@ export async function evaluateSessionForRecovery(
     };
   }
 
-  // Gatilho 2: Baixa acurácia persistente (< 60%)
-  if (accuracy < TRIGGER_THRESHOLD_LOW_ACCURACY && total >= 5) {
-     return {
-        detected: true,
-        reason: 'low_accuracy',
-        subject,
-        topic,
-        errorCount: incorrect
-     };
+  if (total >= 10 && accuracy < TRIGGER_THRESHOLD_LOW_ACCURACY) {
+    return {
+      detected: true,
+      reason: 'low_accuracy',
+      subject,
+      topic,
+      errorCount: incorrect
+    };
   }
 
   return null;
@@ -52,11 +50,10 @@ export async function triggerRecovery(
   subject: string,
   topic: string,
   reason: RecoveryReason,
-  accuracy: number,
+  _accuracy: number,
   sessionId?: string,
   mockExamId?: string
 ) {
-  // Verificar se já existe recuperação aberta
   const { data: existing } = await supabase
     .from('recovery_queue')
     .select('id, status')
@@ -72,58 +69,69 @@ export async function triggerRecovery(
     await supabase
       .from('recovery_queue')
       .update({
+        reason,
+        suggested_actions: suggestedActions,
         updated_at: new Date().toISOString()
       })
       .eq('id', existing.id);
     return existing.id;
-  } else {
-    const { data: created } = await supabase
-      .from('recovery_queue')
-      .insert({
-        user_id: userId,
-        subject,
-        canonical_topic: topic,
-        reason,
-        status: 'open',
-        suggested_actions: suggestedActions,
-        created_from_session_id: sessionId,
-        created_from_mock_exam_id: mockExamId
-      })
-      .select()
-      .single();
-    return created?.id;
   }
+
+  const { data: created } = await supabase
+    .from('recovery_queue')
+    .insert({
+      user_id: userId,
+      subject,
+      canonical_topic: topic,
+      reason,
+      status: 'open',
+      suggested_actions: suggestedActions,
+      created_from_session_id: sessionId,
+      created_from_mock_exam_id: mockExamId
+    })
+    .select('id')
+    .single();
+
+  return created?.id;
 }
 
-function generateRecoveryPlan(reason: RecoveryReason, topic: string): string {
+function generateRecoveryPlan(reason: RecoveryReason, topic: string) {
   const plans: Record<RecoveryReason, any> = {
     recurrent_error: {
+      method: 'Recuperacao Ativa',
       steps: [
-        { action: 'review_theory', duration: 30, description: `Revisar teoria base de ${topic}` },
-        { action: 'fix_errors', count: 10, description: 'Refazer as últimas 10 questões erradas' }
-      ],
-      method: 'Teoria + Prática'
+        { action: 'review_theory', duration: 15, description: `Revisar teoria dirigida de ${topic}` },
+        { action: 'drill_questions', count: 15, description: `Resolver 15 questoes focadas em ${topic}` },
+        { action: 'summary', duration: 5, description: 'Registrar regra-chave em 1 linha' },
+        { action: 'recheck', duration: 10, description: 'Rechecagem em 48-72h' }
+      ]
     },
     mock_exam: {
+      method: 'Pos-Simulado',
       steps: [
-        { action: 'intensive_study', duration: 60, description: 'Estudo intensivo focado em falhas de simulado' }
-      ],
-      method: 'Retomada de Base'
+        { action: 'review_theory', duration: 15, description: `Rever pontos errados de ${topic} no simulado` },
+        { action: 'drill_questions', count: 20, description: `Resolver 20 questoes de ${topic}` },
+        { action: 'recheck', duration: 10, description: 'Rechecagem em 48-72h' }
+      ]
     },
     never_learned: {
+      method: 'Construcao de Base',
       steps: [
-        { action: 'video_lecture', duration: 45, description: `Assistir videoaula completa sobre ${topic}` },
-        { action: 'summary', description: 'Criar mapa mental ou resumo do zero' }
-      ],
-      method: 'Construção de Base'
+        { action: 'video_lecture', duration: 20, description: `Revisar base teorica de ${topic}` },
+        { action: 'drill_questions', count: 10, description: `Resolver 10 questoes introdutorias de ${topic}` },
+        { action: 'summary', duration: 5, description: 'Criar card-resumo do tema' },
+        { action: 'recheck', duration: 10, description: 'Rechecagem em 48-72h' }
+      ]
     },
     low_accuracy: {
+      method: 'Reforco de Acuracia',
       steps: [
-        { action: 'drill_questions', count: 20, description: 'Bateria de 20 questões nível fácil/médio' }
-      ],
-      method: 'Reforço de Acurácia'
+        { action: 'review_theory', duration: 10, description: `Revisao curta de ${topic}` },
+        { action: 'drill_questions', count: 20, description: `Resolver 20 questoes de ${topic}` },
+        { action: 'recheck', duration: 10, description: 'Rechecagem em 48-72h' }
+      ]
     }
   };
 
-  return JSON.stringify(plans[reason] || { steps: [] });
+  return plans[reason] || { method: 'Recuperacao', steps: [] };
 }

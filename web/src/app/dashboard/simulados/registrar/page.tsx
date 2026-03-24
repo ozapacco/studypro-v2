@@ -86,7 +86,7 @@ export default function RegistrarSimuladoPage() {
       });
 
       if (res.ok) {
-        router.push('/dashboard/simulados');
+        router.push('/dashboard/saude');
       } else {
         alert('Erro ao registrar simulado.');
       }

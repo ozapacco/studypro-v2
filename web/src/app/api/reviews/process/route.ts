@@ -16,14 +16,15 @@ export async function POST(request: Request) {
   if (!card) return NextResponse.json({ error: 'Card not found' }, { status: 404 });
 
   // 1. Buscar parâmetros do usuário
-  const { data: profile } = await supabase.from('profiles')
-    .select('fsrs_weights, fsrs_retention')
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('*')
     .eq('id', user.id)
     .single();
 
   const userParams = profile ? {
-      w: profile.fsrs_weights || DEFAULT_FSRS_PARAMS.w,
-      requestRetention: profile.fsrs_retention || DEFAULT_FSRS_PARAMS.requestRetention
+      w: Array.isArray((profile as any).fsrs_weights) ? (profile as any).fsrs_weights : DEFAULT_FSRS_PARAMS.w,
+      requestRetention: Number((profile as any).fsrs_retention || DEFAULT_FSRS_PARAMS.requestRetention)
   } : DEFAULT_FSRS_PARAMS;
 
   // 2. Executar Engine FSRS v2.2

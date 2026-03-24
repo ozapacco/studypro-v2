@@ -58,7 +58,15 @@ export async function GET() {
   };
 
   // 6. Totais Globais
-  const { data: profile } = await supabase.from('profiles').select('total_questions, average_accuracy, target_accuracy').eq('id', user.id).single();
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('target_accuracy')
+    .eq('id', user.id)
+    .single();
+
+  const totalQuestionsAll = (sessions || []).reduce((acc: number, s: any) => acc + Number(s.total_questions || 0), 0);
+  const totalHitsAll = (sessions || []).reduce((acc: number, s: any) => acc + Number(s.correct_answers || 0), 0);
+  const averageAccuracyAll = totalQuestionsAll > 0 ? Math.round((totalHitsAll / totalQuestionsAll) * 100) : 0;
 
   // 7. Cálculo de Projeção (F2.6)
   const { data: allSubjects } = await supabase.from('subjects').select('weight, current_accuracy').eq('exam_id', (await supabase.from('exams').select('id').eq('user_id', user.id).order('created_at', { ascending: false }).limit(1).single()).data?.id);
@@ -69,12 +77,12 @@ export async function GET() {
       weightedSum += (Number(sub.current_accuracy) * sub.weight);
       totalWeight += sub.weight;
   });
-  const projection = totalWeight > 0 ? Math.round(weightedSum / totalWeight) : profile?.average_accuracy;
+  const projection = totalWeight > 0 ? Math.round(weightedSum / totalWeight) : averageAccuracyAll;
 
   return NextResponse.json({
     totals: {
-       questions: profile?.total_questions || 0,
-       accuracy: profile?.average_accuracy || 0,
+       questions: totalQuestionsAll,
+       accuracy: averageAccuracyAll,
        target: profile?.target_accuracy || 70
     },
     projection,

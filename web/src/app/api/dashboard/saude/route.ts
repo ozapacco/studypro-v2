@@ -3,49 +3,65 @@ import { createServerSupabaseClient } from '@/lib/supabase/server';
 
 export async function GET() {
   const supabase = createServerSupabaseClient();
-
   const { data: { user } } = await supabase.auth.getUser();
+
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  // 1. Histórico de Simulados
-  const { data: mocks } = await supabase
-    .from('mock_exams')
-    .select('*')
-    .eq('user_id', user.id)
-    .order('exam_date', { ascending: true });
+  const [{ data: mocks }, { data: recoveries }, { data: topics }] = await Promise.all([
+    supabase
+      .from('mock_exams')
+      .select('id, exam_date, total_score, cutoff_score, analysis, created_at')
+      .eq('user_id', user.id)
+      .order('exam_date', { ascending: true }),
+    supabase
+      .from('recovery_queue')
+      .select('id, subject, canonical_topic, reason, status, created_at')
+      .eq('user_id', user.id)
+      .in('status', ['open', 'in_progress'])
+      .order('created_at', { ascending: false }),
+    supabase
+      .from('topic_performance')
+      .select('subject, canonical_topic, attempts, accuracy, recurrence_score')
+      .eq('user_id', user.id)
+      .order('accuracy', { ascending: false })
+  ]);
 
-  // 2. Fila de Recuperação Ativa
-  const { data: recoveries } = await supabase
-    .from('recovery_entries')
-    .select('*')
+  const { data: activeExam } = await supabase
+    .from('exams')
+    .select('id')
     .eq('user_id', user.id)
-    .eq('status', 'in_progress');
+    .order('exam_date', { ascending: true })
+    .limit(1)
+    .maybeSingle();
 
-  // 3. Top Cobertura vs Gaps (Radar Polonês)
-  const { data: topics } = await supabase
-    .from('topic_performance')
-    .select('*')
-    .eq('user_id', user.id)
-    .order('accuracy', { ascending: false });
+  const { data: subjects } = activeExam
+    ? await supabase
+        .from('subjects')
+        .select('weight, current_accuracy')
+        .eq('exam_id', activeExam.id)
+    : { data: [] as any[] };
 
-  // 4. Calcular Nota Projetada (Média dos últimos 3 simulados + tendência)
-  const last3Mocks = (mocks || []).slice(-3);
-  const currentAvg = last3Mocks.length > 0 
-    ? last3Mocks.reduce((acc: number, m: any) => acc + (m.total_score || 0), 0) / last3Mocks.length 
-    : 0;
-    
-  // Projetar 1.5% de ganho semanal até a prova (ex: 30 dias = 4 semanas = 6.0%)
-  const projectedScore = Math.min(95, currentAvg + 5.0); // Dummy projection for now
+  let weightedProjection = 0;
+  let totalWeight = 0;
+  for (const subject of subjects || []) {
+    const w = Number(subject.weight || 0);
+    weightedProjection += Number(subject.current_accuracy || 0) * w;
+    totalWeight += w;
+  }
+  const weightedScore = totalWeight > 0 ? weightedProjection / totalWeight : 0;
+
+  const lastMock = (mocks || []).slice(-1)[0];
+  const projectedScore = Math.round(lastMock ? (weightedScore * 0.7 + Number(lastMock.total_score || 0) * 0.3) : weightedScore);
 
   return NextResponse.json({
     mocks: mocks || [],
-    recoveries: recoveries || [],
+    recoveries: (recoveries || []).map((r: any) => ({ ...r, trigger_count: 1 })),
     projectedScore,
     performance: {
-       best: topics?.slice(0, 3) || [],
-       worst: topics?.filter((t: any) => t.attempts > 5).slice(-3) || []
+      best: (topics || []).slice(0, 3),
+      worst: (topics || []).filter((t: any) => Number(t.attempts || 0) >= 5).slice(-3)
     }
   });
 }

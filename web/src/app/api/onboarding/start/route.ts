@@ -5,14 +5,25 @@ export async function POST() {
   const supabase = createServerSupabaseClient();
   const { data: { user } } = await supabase.auth.getUser();
 
-  // Se não houver usuário, retornamos um mock ID para o modo Dev se necessário
-  // Mas o ideal é que esteja logado.
-  const userId = user?.id || 'mock-user-dev';
+  if (!user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
 
-  // Na tabela topic_performance, mockamos o início
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('id, daily_time_minutes')
+    .eq('id', user.id)
+    .single();
+
+  const { data: exams } = await supabase
+    .from('exams')
+    .select('id')
+    .eq('user_id', user.id)
+    .limit(1);
+
   return NextResponse.json({
-    id: userId,
-    step: 0,
-    message: 'Onboarding started.',
+    id: profile?.id || user.id,
+    step: exams && exams.length > 0 ? 5 : 0,
+    message: 'Onboarding iniciado.'
   });
 }
