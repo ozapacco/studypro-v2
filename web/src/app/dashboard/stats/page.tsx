@@ -69,9 +69,9 @@ export default function EstatisticasPage() {
                 </div>
              </div>
              <div className="bg-slate-900 p-5 rounded-[32px] text-white">
-                <span className="text-[10px] font-black uppercase tracking-widest opacity-60 text-slate-400">Total Questões</span>
-                <p className="text-2xl font-black mt-1">{data?.totals?.questions?.toLocaleString() || 0}</p>
-                <p className="text-[10px] font-bold text-slate-400 mt-2 uppercase">Status: Operacional</p>
+                <span className="text-[10px] font-black uppercase tracking-widest opacity-60 text-slate-400">Projeção Final</span>
+                <p className="text-2xl font-black mt-1">{data?.projection || data?.totals?.accuracy || 0}%</p>
+                <p className="text-[10px] font-bold text-slate-400 mt-2 uppercase">Score Estimado</p>
              </div>
           </div>
       </header>

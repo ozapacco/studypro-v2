@@ -16,20 +16,23 @@ import {
   Flame,
   LayoutDashboard,
   Clock,
-  ChevronRight
+  ChevronRight,
+  AlertTriangle
 } from 'lucide-react';
 import { cn, formatPercentage } from '@/lib/utils';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { generateDailyMissionAsync } from '@/lib/engines/planner';
+import { generateDailyMissionAsync, getMockImpact } from '@/lib/engines/planner';
 
 async function getDashboardData() {
   const supabase = createServerSupabaseClient();
   const { data: { user } } = await supabase.auth.getUser();
-
   if (!user) {
-    redirect('/login');
+    return redirect('/auth/login');
   }
+
+  // Com o usuário autenticado, podemos prosseguir
+  const userId = user.id;
 
   // Chamar API interna (simulado via call direta se possível, mas aqui usamos a lógica)
   // Como estamos em Server Component, podemos ler do Supabase diretamente.
@@ -39,21 +42,21 @@ async function getDashboardData() {
   const { data: sessions } = await supabase
     .from('question_sessions')
     .select('*')
-    .eq('user_id', user.id)
+    .eq('user_id', userId)
     .gte('session_date', today);
 
   // 2. Cards Pendentes
   const { count: dueCards } = await supabase
     .from('cards')
     .select('*', { count: 'exact', head: true })
-    .eq('user_id', user.id)
+    .eq('user_id', userId)
     .lte('due', new Date().toISOString());
 
   // 3. Matéria fraca e Tópico crítico
   const { data: weakTopics } = await supabase
     .from('topic_performance')
     .select('subject, canonical_topic, accuracy, attempts')
-    .eq('user_id', user.id)
+    .eq('user_id', userId)
     .gt('attempts', 5) // Mínimo de amostragem
     .order('accuracy', { ascending: true })
     .limit(3);
@@ -61,17 +64,17 @@ async function getDashboardData() {
   const { data: weakSubject } = await supabase
     .from('subjects')
     .select('name, current_accuracy')
-    .eq('user_id', user.id)
-    .order('current_accuracy', { ascending: true })
+    .eq('user_id', userId)
+    .order('current_priority', { ascending: false })
     .limit(1)
-    .single()
-    .catch(() => ({ data: null })); // Handle cases with no data
+    .single();
+ // Handle cases with no data
 
   // 4. Fila de Recuperação (F2.3)
   const { data: recoveryQueue } = await supabase
     .from('recovery_queue')
     .select('*')
-    .eq('user_id', user.id)
+    .eq('user_id', userId)
     .in('status', ['open', 'in_progress'])
     .order('created_at', { ascending: false });
 
@@ -79,7 +82,7 @@ async function getDashboardData() {
   const { data: allSessions } = await supabase
     .from('question_sessions')
     .select('session_date')
-    .eq('user_id', user.id)
+    .eq('user_id', userId)
     .order('session_date', { ascending: false });
 
   let streak = 0;
@@ -110,12 +113,14 @@ async function getDashboardData() {
   const totalHits = sessions?.reduce((acc, s) => acc + s.correct_answers, 0) || 0;
   const accuracy = totalQuestions > 0 ? (totalHits / totalQuestions) * 100 : 0;
 
-  const dailyMission = await generateDailyMissionAsync(user.id);
+  const mockImpact = await getMockImpact(userId);
+  const dailyMission = await generateDailyMissionAsync(userId);
 
   const isNewUser = (allSessions?.length || 0) === 0;
 
   return {
     isNewUser,
+    isPostImpact: mockImpact?.isFailed || false,
     user: {
       name: user.user_metadata?.full_name?.split(' ')[0] || 'Guerreiro',
       avatar: user.user_metadata?.avatar_url
@@ -196,6 +201,23 @@ export default async function DashboardPage() {
            </div>
         </div>
       </header>
+
+      {/* Post-Impact HUD (F3.1) */}
+      {data.isPostImpact && (
+        <section className="px-6 -mt-2 mb-4 animate-pulse">
+           <div className="bg-red-950/90 border-2 border-red-500 rounded-3xl p-5 flex items-center justify-between shadow-lg shadow-red-200">
+              <div className="flex items-center gap-4">
+                 <div className="w-12 h-12 bg-red-600 rounded-2xl flex items-center justify-center text-white shadow-inner">
+                    <AlertTriangle size={24} />
+                 </div>
+                 <div>
+                    <h3 className="text-sm font-black text-red-100 uppercase tracking-tighter">Modo Pós-Impacto Ativo</h3>
+                    <p className="text-red-400 text-[10px] font-bold leading-none">SEU PLANO FOI ALTERADO PARA RECUPERAÇÃO</p>
+                 </div>
+              </div>
+           </div>
+        </section>
+      )}
 
       {/* Main Content */}
       <main className="px-6 -mt-4 relative z-10 space-y-6">

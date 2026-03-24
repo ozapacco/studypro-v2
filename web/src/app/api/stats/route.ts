@@ -58,13 +58,26 @@ export async function GET() {
   };
 
   // 6. Totais Globais
-  const { data: profile } = await supabase.from('profiles').select('total_questions, average_accuracy').eq('id', user.id).single();
+  const { data: profile } = await supabase.from('profiles').select('total_questions, average_accuracy, target_accuracy').eq('id', user.id).single();
+
+  // 7. Cálculo de Projeção (F2.6)
+  const { data: allSubjects } = await supabase.from('subjects').select('weight, current_accuracy').eq('exam_id', (await supabase.from('exams').select('id').eq('user_id', user.id).order('created_at', { ascending: false }).limit(1).single()).data?.id);
+  
+  let weightedSum = 0;
+  let totalWeight = 0;
+  (allSubjects || []).forEach(s => {
+      weightedSum += (Number(s.current_accuracy) * s.weight);
+      totalWeight += s.weight;
+  });
+  const projection = totalWeight > 0 ? Math.round(weightedSum / totalWeight) : profile?.average_accuracy;
 
   return NextResponse.json({
     totals: {
        questions: profile?.total_questions || 0,
-       accuracy: profile?.average_accuracy || 0
+       accuracy: profile?.average_accuracy || 0,
+       target: profile?.target_accuracy || 70
     },
+    projection,
     recovery: recoveryStats,
     heatmap: sessions || [],
     platforms,

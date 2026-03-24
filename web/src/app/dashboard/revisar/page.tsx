@@ -12,6 +12,7 @@ interface Card {
   back: string;
   subject: string;
   canonical_topic: string;
+  error_context?: string;
 }
 
 export default function RevisarPage() {
@@ -147,9 +148,15 @@ export default function RevisarPage() {
               </div>
               
               <div className="my-auto overflow-y-auto pr-2 custom-scrollbar">
-                <p className="text-xl font-bold text-slate-700 leading-relaxed whitespace-pre-wrap">
-                   {card.back}
-                </p>
+                 <p className="text-xl font-bold text-slate-700 leading-relaxed whitespace-pre-wrap">
+                    {card.back}
+                 </p>
+                 {card.error_context && (
+                    <div className="mt-8 p-4 bg-amber-50 border border-amber-200 rounded-2xl">
+                       <span className="text-[10px] font-black uppercase tracking-widest text-amber-600 block mb-1">Causa da Falha</span>
+                       <p className="text-xs font-bold text-amber-800 italic leading-snug">{card.error_context}</p>
+                    </div>
+                 )}
               </div>
 
               <div className="mt-auto pt-6 grid grid-cols-2 gap-3">

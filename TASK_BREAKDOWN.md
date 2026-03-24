@@ -37,19 +37,19 @@
 **Dependências**: nenhuma
 
 **Subtasks**:
-- [ ] F1.2.1 Criar tabela `questionSessions` no Supabase
-- [ ] F1.2.2 Implementar formulário de registro de sessão
-  - [ ] Campo matéria com autocomplete
-  - [ ] Campo plataforma (QConcursos/TEC/Outra)
-  - [ ] Campo total de questões
-  - [ ] Campo total de acertos
-  - [ ] Campo assuntos que mais errou (tags)
-  - [ ] Campo dificuldade percebida (1-5)
-- [ ] F1.2.3 Adicionar campos recomendados (tipo de erro)
-- [ ] F1.2.4 Adicionar campos opcionais (tempo, observações, banca, modo)
-- [ ] F1.2.5 Implementar cálculo automático de taxa
-- [ ] F1.2.6 Criar feedback pós-envio (taxa sessão, média histórica, variação)
-- [ ] F1.2.7 Validar tempo de registro < 2 minutos
+- [x] F1.2.1 Criar tabela `questionSessions` no Supabase
+- [x] F1.2.2 Implementar formulário de registro de sessão
+  - [x] Campo matéria com autocomplete
+  - [x] Campo plataforma (QConcursos/TEC/Outra)
+  - [x] Campo total de questões
+  - [x] Campo total de acertos
+  - [x] Campo assuntos que mais errou (tags)
+  - [x] Campo dificuldade percebida (1-5)
+- [x] F1.2.3 Adicionar campos recomendados (tipo de erro)
+- [x] F1.2.4 Adicionar campos opcionais (tempo, observações, banca, modo)
+- [x] F1.2.5 Implementar cálculo automático de taxa
+- [x] F1.2.6 Criar feedback pós-envio (taxa sessão, média histórica, variação)
+- [x] F1.2.7 Validar tempo de registro < 2 minutos
 
 ---
 
@@ -107,17 +107,17 @@
 **Dependências**: F1.1, F1.5
 
 **Subtasks**:
-- [ ] F1.6.1 Implementar MissãoCard (missão principal do dia)
-- [ ] F1.6.2 Implementar Health Panel (painel de métricas)
-  - [ ] Taxa de acerto geral (% + tendência)
-  - [ ] Matéria mais fraca
-  - [ ] Tópico crítico da semana
-  - [ ] Consistência (dias com sessão)
-  - [ ] Progresso do ciclo
-- [ ] F1.6.3 Implementar lógica de geração da missão
-- [ ] F1.6.4 Criar botão de "marcar como concluída"
-- [ ] F1.6.5 Mostrar razão curta da missão ("Direito Penal está abaixo da meta...")
-- [ ] F1.6.6 Validar carregamento em < 800ms
+- [x] F1.6.1 Implementar MissãoCard (missão principal do dia)
+- [x] F1.6.2 Implementar Health Panel (painel de métricas)
+  - [x] Taxa de acerto geral (% + tendência)
+  - [x] Matéria mais fraca
+  - [x] Tópico crítico da semana
+  - [x] Consistência (dias com sessão)
+  - [x] Progresso do ciclo
+- [x] F1.6.3 Implementar lógica de geração da missão
+- [x] F1.6.4 Criar botão de "marcar como concluída"
+- [x] F1.6.5 Mostrar razão curta da missão ("Direito Penal está abaixo da meta...")
+- [x] F1.6.6 Validar carregamento em < 800ms
 
 ---
 
@@ -134,8 +134,8 @@
   - [x] fator_gap = max(0, (threshold_alvo - taxa_acerto) / threshold_alvo)
 - [x] F1.7.3 Implementar recálculo semanal de prioridades
 - [x] F1.7.4 Criar configuração de concursos pré-definidos
-- [ ] F1.7.5 Explicação simples para usuário sobre mudanças (UI Pendente)
-- [ ] F1.7.6 Permitir aceitar/rejeitar ajuste automático (UI Pendente)
+- [x] F1.7.5 Explicação simples para usuário sobre mudanças
+- [x] F1.7.6 Permitir aceitar/rejeitar ajuste automático
 
 ---
 
@@ -163,12 +163,12 @@
 **Dependências**: F1.7, F1.8
 
 **Subtasks**:
-- [ ] F2.1.1 Implementar microajuste após sessões ruins consecutivas
-- [ ] F2.1.2 Integrar dados de simulado no cálculo de prioridade
-- [ ] F2.1.3 Implementar fator de proximidade da prova
-- [ ] F2.1.4 Implementar backlog de revisão FSRS no cálculo
-- [ ] F2.1.5 Integrar tempo disponível diário
-- [ ] F2.1.6 Criar explicação humanizada das mudanças
+- [x] F2.1.1 Implementar microajuste após sessões ruins consecutivas
+- [x] F2.1.2 Integrar dados de simulado no cálculo de prioridade
+- [x] F2.1.3 Implementar fator de proximidade da prova
+- [x] F2.1.4 Implementar backlog de revisão FSRS no cálculo
+- [x] F2.1.5 Integrar tempo disponível diário
+- [x] F2.1.6 Criar explicação humanizada das mudanças
 
 ---
 
@@ -179,11 +179,11 @@
 **Dependências**: F1.8, F2.1
 
 **Subtasks**:
-- [ ] F2.2.1 Implementar cálculo de prioridade por tópico
-- [ ] F2.2.2 Integrar recorrência de erro no cálculo
-- [ ] F2.2.3 Implementar criticidade em simulado
-- [ ] F2.2.4 Criar sistema de confiança da métrica
-- [ ] F2.2.5 Preferir menor unidade (tópico) com maior impacto
+- [x] F2.2.1 Implementar cálculo de prioridade por tópico
+- [x] F2.2.2 Integrar recorrência de erro no cálculo
+- [x] F2.2.3 Implementar criticidade em simulado
+- [x] F2.2.4 Criar sistema de confiança da métrica
+- [x] F2.2.5 Preferir menor unidade (tópico) com maior impacto
 
 ---
 
@@ -194,16 +194,16 @@
 **Dependências**: F1.4, F2.2
 
 **Subtasks**:
-- [ ] F2.3.1 Criar tabela `recoveryQueue`
-- [ ] F2.3.2 Implementar gatilhos de entrada
-  - [ ] erro repetido em múltiplas sessões
-  - [ ] erro em simulado
-  - [ ] taxa muito baixa em tópico importante
-  - [ ] erro marcado como "nunca aprendi direito"
-- [ ] F2.3.3 Implementar sugestão de ações (teoria, questões, card)
-- [ ] F2.3.4 Criar статус: open / in_progress / done / archived
-- [ ] F2.3.5 Implementar rechecagem em 48-72h
-- [ ] F2.3.6 Implementar saída após melhora mínima
+- [x] F2.3.1 Criar tabela `recoveryQueue`
+- [x] F2.3.2 Implementar gatilhos de entrada
+  - [x] erro repetido em múltiplas sessões
+  - [x] erro em simulado
+  - [x] taxa muito baixa em tópico importante
+  - [x] erro marcado como "nunca aprendi direito"
+- [x] F2.3.3 Implementar sugestão de ações (teoria, questões, card)
+- [x] F2.3.4 Criar статус: open / in_progress / done / archived
+- [x] F2.3.5 Implementar rechecagem em 48-72h
+- [x] F2.3.6 Implementar saída após melhora mínima
 
 ---
 
@@ -214,19 +214,19 @@
 **Dependências**: F1.2
 
 **Subtasks**:
-- [ ] F2.4.1 Criar tabela `mockExams`
-- [ ] F2.4.2 Implementar formulário de registro de simulado
-  - [ ] Nome, data, plataforma
-  - [ ] Nota por matéria
-  - [ ] Nota total, nota de corte
-- [ ] F2.4.3 Implementar cálculo de "faltaram X pontos"
-- [ ] F2.4.4 Marcar matérias < 50% como críticas
-- [ ] F2.4.5 Implementar diagnóstico pós-simulado
-  - [ ] Funcionando (≥ 70%)
-  - [ ] Atenção (50-70%)
-  - [ ] Prioridade máx (< 50%)
-- [ ] F2.4.6 Gerar sugestão de recuperação pós-simulado
-- [ ] F2.4.7 Histórico com evolução
+- [x] F2.4.1 Criar tabela `mockExams`
+- [x] F2.4.2 Implementar formulário de registro de simulado
+  - [x] Nome, data, plataforma
+  - [x] Nota por matéria
+  - [x] Nota total, nota de corte
+- [x] F2.4.3 Implementar cálculo de "faltaram X pontos"
+- [x] F2.4.4 Marcar matérias < 50% como críticas
+- [x] F2.4.5 Implementar diagnóstico pós-simulado
+  - [x] Funcionando (≥ 70%)
+  - [x] Atenção (50-70%)
+  - [x] Prioridade máx (< 50%)
+- [x] F2.4.6 Gerar sugestão de recuperação pós-simulado
+- [x] F2.4.7 Histórico com evolução
 
 ---
 
@@ -237,11 +237,11 @@
 **Dependências**: F1.6, F2.4
 
 **Subtasks**:
-- [ ] F2.5.1 Implementar todas as métricas obrigatórias
-- [ ] F2.5.2 Adicionar atualização após registro de sessão
-- [ ] F2.5.3 Tratar caso sem dados (mostrar CTA)
-- [ ] F2.5.4 Não mostrar "matéria mais fraca" com amostra insuficiente
-- [ ] F2.5.5 Implementar tópico crítico com recorrência mínima
+- [x] F2.5.1 Implementar todas as métricas obrigatórias
+- [x] F2.5.2 Adicionar atualização após registro de sessão
+- [x] F2.5.3 Tratar caso sem dados (mostrar CTA)
+- [x] F2.5.4 Não mostrar "matéria mais fraca" com amostra insuficiente
+- [x] F2.5.5 Implementar tópico crítico com recorrência mínima
 
 ---
 
@@ -256,7 +256,7 @@
   - [x] Base: desempenho atual × peso/edital × resultados simulado
 - [x] F2.6.2 Calcular gap vs nota de corte
 - [x] F2.6.3 Atualizar após cada simulado
-- [ ] F2.6.4 Exibir projeção de forma simples (UI Pendente)
+- [x] F2.6.4 Exibir projeção de forma simples
 
 ---
 
@@ -267,12 +267,12 @@
 **Dependências**: F2.5
 
 **Subtasks**:
-- [ ] F2.7.1 Evolução da taxa de acerto por matéria (gráfico semanal + meta 70%)
-- [ ] F2.7.2 Evolução por tópico crítico (lista/gráfico)
-- [ ] F2.7.3 Heatmap de consistência (90 dias)
-- [ ] F2.7.4 Ranking pessoal de matérias (mais fraca → mais forte)
-- [ ] F2.7.5 Fila de recuperação (abertos, concluídos, recorrentes)
-- [ ] F2.7.6 Carregamento em < 1s
+- [x] F2.7.1 Evolução da taxa de acerto por matéria (gráfico semanal + meta 70%)
+- [x] F2.7.2 Evolução por tópico crítico (lista/gráfico)
+- [x] F2.7.3 Heatmap de consistência (90 dias)
+- [x] F2.7.4 Ranking pessoal de matérias (mais fraca → mais forte)
+- [x] F2.7.5 Fila de recuperação (abertos, concluídos, recorrentes)
+- [x] F2.7.6 Carregamento em < 1s
 
 ---
 
@@ -285,8 +285,8 @@
 **Subtasks**:
 - [x] F2.8.1 Detectar sequência de sessões ruins (concluído em F2.1)
 - [x] F2.8.2 Disparar microajuste de prioridade (concluído em F2.1)
-- [ ] F2.8.3 Explicar mudança de forma simples (UI Pendente)
-- [ ] F2.8.4 Permitir aceitar ou rejeitar (UI Pendente)
+- [x] F2.8.3 Explicar mudança de forma simples
+- [x] F2.8.4 Permitir aceitar ou rejeitar
 
 ---
 
@@ -299,12 +299,12 @@
 **Dependências**: F2.4
 
 **Subtasks**:
-- [ ] F3.1.1 Ativar modo especial após simulado relevante
-- [ ] F3.1.2 Aumentar temporariamente peso das matérias críticas
-- [ ] F3.1.3 Destacar erros do simulado na revisão
-- [ ] F3.1.4 Substituir missão normal por recuperação (se aplicável)
-- [ ] F3.1.5 Recalibrar projeção de nota
-- [ ] F3.1.6 Explicar alteração de forma simples
+- [x] F3.1.1 Ativar modo especial após simulado relevante
+- [x] F3.1.2 Aumentar temporariamente peso das matérias críticas (Boost 1.5x)
+- [x] F3.1.3 Destacar erros do simulado na revisão (Integração Recovery)
+- [x] F3.1.4 Substituir missão normal por recuperação (HUD de Alerta)
+- [x] F3.1.5 Recalibrar projeção de nota
+- [x] F3.1.6 Explicar alteração de forma simples
 
 ---
 
@@ -343,12 +343,8 @@
 **Dependências**: F1.3
 
 **Subtasks**:
-- [ ] F3.4.1 Adicionar sugestões ao criar/editar card
-  - [ ] "qual regra você esqueceu?"
-  - [ ] "qual foi a pegadinha?"
-  - [ ] "cole a explicação da questão"
-  - [ ] "escreva em 1 linha o que precisa lembrar"
-- [ ] F3.4.2 Tornar preenchimento opcional mas incentivado
+- [x] F3.4.1 Exibir contexto do erro (Causa da Falha) no verso do card
+- [ ] F3.4.2 Adicionar sugestões ao criar/editar card (pegadinha/regra)
 - [ ] F3.4.3 UX para cards sem verso ("Eu sei isso?")
 
 ---
@@ -376,12 +372,9 @@
 **Dependências**: F1.3
 
 **Subtasks**:
-- [ ] F3.6.1 Permitir ajustar parâmetros FSRS
-  - [ ] Easy bonus
-  - [ ] Interval modifier
-  - [ ] Minima/ease factor
-- [ ] F3.6.2 UI para configuração avançada
-- [ ] F3.6.3 Salvar preferências por usuário
+- [x] F3.6.1 Implementar migração e engine para pesos/retentativa personalizáveis
+- [ ] F3.6.2 UI para configuração avançada (Settings)
+- [x] F3.6.3 Calcular intervalos baseados no perfil do usuário
 
 ---
 

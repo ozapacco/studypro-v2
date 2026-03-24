@@ -115,13 +115,20 @@ export async function generateDailyMissionAsync(userId: string): Promise<DailyMi
     itemsRemaining -= reviewTarget;
   }
 
-  // 3. AVANÇO E REFORÇO (Baseado em Pesos + Gaps Tópico F2.2)
+  // 3. AVANÇO E REFORÇO (Baseado em Pesos + Gaps Tópico F2.2 + Impacto Simulado F3.1)
   if (itemsRemaining > 10 && subjects && subjects.length > 0) {
-     // Calcular prioridade para cada matéria baseado no peso e acurácia geral
-     const subjectsWithPriority = subjects.map(s => ({
-       ...s,
-       calculatedPriority: calculatePriority(s.weight, Number(s.current_accuracy), s.target_accuracy)
-     })).sort((a,b) => b.calculatedPriority - a.calculatedPriority);
+     const criticalMockSubjects = mockImpact?.isFailed ? mockImpact.criticalTopics : []; // Aqui criticalTopics na vdd são as matérias críticas no mock
+
+     // Calcular prioridade para cada matéria
+     const subjectsWithPriority = subjects.map(s => {
+       let p = calculatePriority(s.weight, Number(s.current_accuracy), s.target_accuracy);
+       
+       // Boost F3.1: Se a matéria foi crítica no simulado (nota < 50%), aumenta peso em 50%
+       if (criticalMockSubjects.includes(s.name)) {
+          p *= 1.5;
+       }
+       return { ...s, calculatedPriority: p };
+     }).sort((a,b) => b.calculatedPriority - a.calculatedPriority);
 
      const topSubject = subjectsWithPriority[0];
      
@@ -134,10 +141,8 @@ export async function generateDailyMissionAsync(userId: string): Promise<DailyMi
 
      let targetTopic = 'Geral';
      if (subjectTopics && subjectTopics.length > 0) {
-        // Ordenar tópicos por criticidade (Acurácia baixa + Recorrência alta)
         const prioritizedTopics = subjectTopics.map(t => {
            const threshold = topSubject.target_accuracy || 70;
-           // Só confiar na acurácia se tiver amostra mínima (ex: 5 tentativas)
            const trustFactor = t.attempts >= 5 ? 1 : (t.attempts / 5);
            const gap = Math.max(0, (threshold - t.accuracy) / threshold) * trustFactor;
            const recurrenceFactor = (t.recurrence_score || 0) / 100;
