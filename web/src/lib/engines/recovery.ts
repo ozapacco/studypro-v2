@@ -53,7 +53,8 @@ export async function triggerRecovery(
   topic: string,
   reason: RecoveryReason,
   accuracy: number,
-  sessionId?: string
+  sessionId?: string,
+  mockExamId?: string
 ) {
   // Verificar se já existe recuperação aberta
   const { data: existing } = await supabase
@@ -85,7 +86,8 @@ export async function triggerRecovery(
         reason,
         status: 'open',
         suggested_actions: suggestedActions,
-        created_from_session_id: sessionId
+        created_from_session_id: sessionId,
+        created_from_mock_exam_id: mockExamId
       })
       .select()
       .single();

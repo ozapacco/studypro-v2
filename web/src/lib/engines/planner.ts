@@ -115,9 +115,9 @@ export async function generateDailyMissionAsync(userId: string): Promise<DailyMi
     itemsRemaining -= reviewTarget;
   }
 
-  // 3. AVANÇO E REFORÇO (Baseado em Pesos + Gaps F1.7)
+  // 3. AVANÇO E REFORÇO (Baseado em Pesos + Gaps Tópico F2.2)
   if (itemsRemaining > 10 && subjects && subjects.length > 0) {
-     // Calcular prioridade para cada matéria
+     // Calcular prioridade para cada matéria baseado no peso e acurácia geral
      const subjectsWithPriority = subjects.map(s => ({
        ...s,
        calculatedPriority: calculatePriority(s.weight, Number(s.current_accuracy), s.target_accuracy)
@@ -125,16 +125,32 @@ export async function generateDailyMissionAsync(userId: string): Promise<DailyMi
 
      const topSubject = subjectsWithPriority[0];
      
-     // Buscar tópico crítico desta matéria
+     // F2.2: Buscar tópicos desta matéria e calcular a prioridade específica de cada um
      const { data: subjectTopics } = await supabase
        .from('topic_performance')
        .select('*')
        .eq('user_id', userId)
-       .eq('subject', topSubject.name)
-       .order('accuracy', { ascending: true })
-       .limit(1);
+       .eq('subject', topSubject.name);
 
-     const targetTopic = subjectTopics?.[0]?.canonical_topic || 'Geral';
+     let targetTopic = 'Geral';
+     if (subjectTopics && subjectTopics.length > 0) {
+        // Ordenar tópicos por criticidade (Acurácia baixa + Recorrência alta)
+        const prioritizedTopics = subjectTopics.map(t => {
+           const threshold = topSubject.target_accuracy || 70;
+           // Só confiar na acurácia se tiver amostra mínima (ex: 5 tentativas)
+           const trustFactor = t.attempts >= 5 ? 1 : (t.attempts / 5);
+           const gap = Math.max(0, (threshold - t.accuracy) / threshold) * trustFactor;
+           const recurrenceFactor = (t.recurrence_score || 0) / 100;
+           
+           return {
+              ...t,
+              topicPriority: (1 + gap) * (1 + recurrenceFactor)
+           };
+        }).sort((a,b) => b.topicPriority - a.topicPriority);
+
+        targetTopic = prioritizedTopics[0].canonical_topic;
+     }
+
      const questionsTarget = Math.min(itemsRemaining, settings?.fsrs_daily_new || 30);
 
      missions.push({

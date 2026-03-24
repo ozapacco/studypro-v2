@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
-import { triggerRecovery } from '../../../../../src/lib/engines/recovery';
+import { triggerRecovery } from '@/lib/engines/recovery';
 
 export async function POST(request: Request) {
   const body = await request.json();
@@ -65,7 +65,9 @@ export async function POST(request: Request) {
         s.name,
         'GERAL (Simulado)',
         'mock_exam',
-        accuracy
+        accuracy,
+        undefined,
+        mock.id
       );
     }
   }
