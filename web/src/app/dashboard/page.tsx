@@ -25,11 +25,16 @@ import { redirect } from 'next/navigation';
 import { generateDailyMissionAsync, getMockImpact } from '@/lib/engines/planner';
 
 async function getDashboardData() {
+ try {
   const supabase = createServerSupabaseClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) {
+  if (!supabase) {
+    return { error: 'Supabase não configurado' };
+  }
+  const { data: userData } = await supabase.auth.getUser();
+  if (!userData?.user) {
     return redirect('/auth/login');
   }
+  const user = userData.user;
 
   // Com o usuário autenticado, podemos prosseguir
   const userId = user.id;
@@ -148,10 +153,32 @@ async function getDashboardData() {
     },
     recoveryQueue: recoveryQueue || []
   };
+ } catch (err) {
+    console.error('DASHBOARD_FATAL:', err);
+    return { error: 'Erro ao carregar dados' };
+ }
 }
 
 export default async function DashboardPage() {
   const data = await getDashboardData();
+  
+  if ('error' in data) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen p-6 text-center bg-slate-50">
+        <div className="bg-red-50 p-8 rounded-[40px] border border-red-100 max-w-sm">
+           <AlertTriangle size={48} className="text-red-500 mx-auto mb-4" />
+           <h2 className="text-xl font-black text-red-900 mb-2">Erro Operacional</h2>
+           <p className="text-xs font-medium text-red-700 leading-relaxed mb-6">
+             O sistema não conseguiu se conectar ao motor de inteligência. Verifique as chaves do Supabase nas variáveis de ambiente.
+           </p>
+           <Link href="/" className="inline-block p-4 bg-red-600 text-white rounded-2xl font-black">
+              Recarregar Sistema
+           </Link>
+        </div>
+      </div>
+    );
+  }
+
   const { user, stats, mission, recoveryQueue } = data;
 
   return (
