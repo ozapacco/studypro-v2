@@ -1,7 +1,8 @@
 import { signUp } from '@/lib/supabase/auth'
 
-export default function RegisterPage({ searchParams }: { searchParams: { error?: string } }) {
+export default function RegisterPage({ searchParams }: { searchParams: { error?: string, message?: string } }) {
   const hasError = searchParams?.error === 'true';
+  const errorMessage = searchParams?.message || 'Erro ao cadastrar! Verifique seus dados ou tente outro email.';
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -13,7 +14,7 @@ export default function RegisterPage({ searchParams }: { searchParams: { error?:
 
         {hasError && (
           <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg text-sm font-medium text-center shadow-sm">
-            Erro ao cadastrar! Verifique seus dados ou tente outro email.<br/>
+            {errorMessage}<br/>
             <span className="text-xs font-normal mt-1 block">
               Nota: Na Vercel, confirme se as variáveis do Supabase estão configuradas!
             </span>
