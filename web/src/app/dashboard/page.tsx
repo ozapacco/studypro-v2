@@ -112,7 +112,10 @@ async function getDashboardData() {
 
   const dailyMission = await generateDailyMissionAsync(user.id);
 
+  const isNewUser = (allSessions?.length || 0) === 0;
+
   return {
+    isNewUser,
     user: {
       name: user.user_metadata?.full_name?.split(' ')[0] || 'Guerreiro',
       avatar: user.user_metadata?.avatar_url
@@ -123,7 +126,8 @@ async function getDashboardData() {
       dueCards: dueCards || 0,
       streak: streak || 0,
       weakSubject: weakSubject?.name || '---',
-      criticalTopic: weakTopics?.[0]?.canonical_topic || '---'
+      criticalTopic: weakTopics?.[0]?.canonical_topic || '---',
+      hasTrustedData: (weakTopics?.length || 0) > 0
     },
     mission: {
       title: dailyMission.missions[0]?.subject || 'Inicie seu Ciclo',
@@ -196,8 +200,26 @@ export default async function DashboardPage() {
       {/* Main Content */}
       <main className="px-6 -mt-4 relative z-10 space-y-6">
         
+        {/* New User Welcome CTA (F2.5.3) */}
+        {data.isNewUser && (
+           <section className="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-[40px] p-8 text-white shadow-xl shadow-blue-200 text-center space-y-6">
+              <div className="w-20 h-20 bg-white/20 rounded-3xl flex items-center justify-center mx-auto mb-2 animate-bounce">
+                 <Zap size={40} className="text-white" />
+              </div>
+              <div>
+                 <h2 className="text-3xl font-black">Pronto para a Glória?</h2>
+                 <p className="text-blue-100 text-sm font-medium mt-2">Ainda não detectamos seus pontos cegos. Comece agora sua primeira bateria!</p>
+              </div>
+              <Link href="/dashboard/registrar" className="block">
+                 <Button className="w-full bg-white text-blue-700 h-16 rounded-2xl font-black text-lg shadow-lg">
+                   Primeira Bateria
+                 </Button>
+              </Link>
+           </section>
+        )}
+
         {/* Cicatrização Alert (If any) */}
-        {stats.dueCards > 0 && (
+        {!data.isNewUser && stats.dueCards > 0 && (
           <Link href="/dashboard/revisar" className="block animate-in fade-in slide-in-from-top-4 duration-500">
             <div className="bg-amber-600 rounded-3xl p-6 text-white flex items-center justify-between shadow-xl shadow-amber-200 overflow-hidden relative group">
               <div className="absolute top-0 right-0 p-2 opacity-10 group-hover:scale-150 transition-transform">
@@ -217,47 +239,60 @@ export default async function DashboardPage() {
           </Link>
         )}
 
-        {/* Health Panel (F1.6.2) */}
-        <section className="bg-white rounded-[40px] p-6 shadow-sm border border-slate-100">
-           <div className="flex items-center justify-between mb-6">
-              <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest">Health Panel</h3>
-              <div className="px-2 py-1 bg-green-50 text-green-600 text-[10px] font-black rounded-lg">SISTEMA OK</div>
-           </div>
-           
-           <div className="space-y-4">
-              <div className="flex items-center justify-between p-2">
-                 <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-400">
-                       <Target size={18} />
-                    </div>
-                    <div>
-                       <p className="text-[10px] font-black text-slate-400 uppercase leading-none">Ponto Cego</p>
-                       <h4 className="font-bold text-slate-900 text-sm truncate max-w-[150px]">{stats.criticalTopic}</h4>
-                    </div>
-                 </div>
-                 <div className="text-right">
-                    <p className="text-[10px] font-black text-slate-400 uppercase leading-none">Crítico</p>
-                    <span className="text-xs font-black text-red-500">AÇÃO IMEDIATA</span>
-                 </div>
+        {/* Health Panel (F2.5.1 / F2.5.4) */}
+        {!data.isNewUser && (
+           <section className="bg-white rounded-[40px] p-6 shadow-sm border border-slate-100">
+              <div className="flex items-center justify-between mb-6">
+                 <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest">Health Panel</h3>
+                 <div className="px-2 py-1 bg-green-50 text-green-600 text-[10px] font-black rounded-lg">SISTEMA OK</div>
               </div>
+              
+              <div className="space-y-4">
+                 {/* Only show if we have trusted samples (N>5) */}
+                 {stats.hasTrustedData ? (
+                   <>
+                    <div className="flex items-center justify-between p-2">
+                       <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-400">
+                             <Target size={18} />
+                          </div>
+                          <div>
+                             <p className="text-[10px] font-black text-slate-400 uppercase leading-none">Ponto Cego</p>
+                             <h4 className="font-bold text-slate-900 text-sm truncate max-w-[150px]">{stats.criticalTopic}</h4>
+                          </div>
+                       </div>
+                       <div className="text-right">
+                          <p className="text-[10px] font-black text-slate-400 uppercase leading-none">Crítico</p>
+                          <span className="text-xs font-black text-red-500">AÇÃO IMEDIATA</span>
+                       </div>
+                    </div>
 
-              <div className="flex items-center justify-between p-2">
-                 <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-400">
-                       <Clock size={18} />
+                    <div className="flex items-center justify-between p-2">
+                       <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-400">
+                             <Clock size={18} />
+                          </div>
+                          <div>
+                             <p className="text-[10px] font-black text-slate-400 uppercase leading-none">Matéria Fraca</p>
+                             <h4 className="font-bold text-slate-900 text-sm">{stats.weakSubject}</h4>
+                          </div>
+                       </div>
+                       <div className="text-right">
+                          <p className="text-[10px] font-black text-slate-400 uppercase leading-none">Cards</p>
+                          <span className="text-xs font-black text-blue-600">{stats.dueCards} Rev.</span>
+                       </div>
                     </div>
-                    <div>
-                       <p className="text-[10px] font-black text-slate-400 uppercase leading-none">Matéria Fraca</p>
-                       <h4 className="font-bold text-slate-900 text-sm">{stats.weakSubject}</h4>
+                   </>
+                 ) : (
+                    <div className="py-4 text-center">
+                       <p className="text-xs text-slate-400 font-semibold px-4 italic leading-tight">
+                         Amostragem insuficiente para diagnóstico de saúde. Seus gatilhos de precisão aparecerão após algumas sessões.
+                       </p>
                     </div>
-                 </div>
-                 <div className="text-right">
-                    <p className="text-[10px] font-black text-slate-400 uppercase leading-none">Cards</p>
-                    <span className="text-xs font-black text-blue-600">{stats.dueCards} Rev.</span>
-                 </div>
+                 )}
               </div>
-           </div>
-        </section>
+           </section>
+        )}
 
         {/* Fila de Recuperação (F2.3) */}
         {recoveryQueue && recoveryQueue.length > 0 && (
